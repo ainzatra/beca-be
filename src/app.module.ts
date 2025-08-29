@@ -6,6 +6,8 @@ import { PrismaService } from './prisma.service';
 import { UsersModule } from './modules/users/users.module';
 import { ZenstackModule } from './zenstack.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { CampaignModule } from './modules/campaign/campaign.module';
+import { SurveyModule } from './modules/survey/survey.module';
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { AuthModule } from './modules/auth/auth.module';
     UsersModule,
     ZenstackModule,
     AuthModule,
+    CampaignModule,
+    SurveyModule
   ],
   controllers: [],
   providers: [
