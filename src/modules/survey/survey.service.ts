@@ -42,6 +42,26 @@ export class SurveyService {
         return survey
     }
 
+    async findPublicById(id: string) {
+        const survey = await this.prisma.survey.findUnique({
+            where: { id },
+            include: {
+                campaign: true
+            }
+        })
+
+        
+        if (!survey) {
+            throw new NotFoundException('Survey not found')
+        }
+        
+        if (survey.campaign.activePhase !== survey.phase || !survey.isFinalized) {
+            throw new NotFoundException('Survey not found')
+        }
+
+        return survey
+    }
+
     async updateSurvey(data, id: string) {
         return this.prisma.survey.update({
             where: { id },

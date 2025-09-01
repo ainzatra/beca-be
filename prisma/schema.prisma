@@ -52,15 +52,16 @@ model Campaign {
 }
 
 model Survey {
-  id         String        @id() @default(uuid())
-  campaignId String
-  title      String
-  form       String
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt()
-  phase      CampaignPhase @default(PRE)
-  campaign   Campaign      @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  responses  Response[]
+  id          String        @id() @default(uuid())
+  campaignId  String
+  title       String
+  form        String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt()
+  phase       CampaignPhase @default(PRE)
+  isFinalized Boolean       @default(false)
+  campaign    Campaign      @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  responses   Response[]
 }
 
 model Response {

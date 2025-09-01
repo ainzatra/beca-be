@@ -22,6 +22,11 @@ export class SurveyController {
     async create(@Body() body) {
         return this.service.createSurvey(body)
     }
+    
+    @Get('/public/:id')
+    async findPublicById(@Param('id') id: string) {
+        return this.service.findPublicById(id)
+    }
 
     @Get(':id')
     async findById(@Param('id') id: string) {

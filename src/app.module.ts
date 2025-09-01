@@ -8,6 +8,7 @@ import { ZenstackModule } from './zenstack.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CampaignModule } from './modules/campaign/campaign.module';
 import { SurveyModule } from './modules/survey/survey.module';
+import { ResponseModule } from './modules/response/response.module';
 
 @Module({
   imports: [
@@ -21,7 +22,8 @@ import { SurveyModule } from './modules/survey/survey.module';
     ZenstackModule,
     AuthModule,
     CampaignModule,
-    SurveyModule
+    SurveyModule,
+    ResponseModule
   ],
   controllers: [],
   providers: [
