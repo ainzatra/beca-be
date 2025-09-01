@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { CampaignPhase } from '@prisma/client';
 import { PrismaService } from 'src/prisma.service';
+import { CreateSurveyDto } from './dto/create-survey.dto';
 
 @Injectable()
 export class SurveyService {
@@ -23,7 +24,9 @@ export class SurveyService {
         })
     }
 
-    async createSurvey(data) {
+    async createSurvey(data: CreateSurveyDto) {
+        if (!data.form) data.form = '[]'
+        
         return this.prisma.survey.create({ data })
     }
 
