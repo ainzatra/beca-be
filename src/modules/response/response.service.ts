@@ -1,9 +1,18 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Response } from '@prisma/client';
 import { PrismaService } from 'src/prisma.service';
 
 @Injectable()
 export class ResponseService {
     constructor(private readonly prisma: PrismaService) {}
+
+    async bulkSubmit(data) {
+        for (const response of data.body) {
+            response.data = JSON.stringify(response.data)
+            await this.prisma.response.create({ data: response })
+        }
+        return 'Responses saved'
+    }
 
     async submitResponse(surveyId, data) {
         const survey = await this.prisma.survey.findUnique({
@@ -28,5 +37,13 @@ export class ResponseService {
         }
 
         return 'Response saved'
+    }
+
+    async fetchResponse(surveyId) {
+        return this.prisma.response.findMany({
+            where: {
+                surveyId
+            }
+        })
     }
 }

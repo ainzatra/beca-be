@@ -3,7 +3,7 @@ import { UsersService } from './users.service';
 import { AuthGuard } from '../auth/guard/auth.guard';
 import { CreateUserDto } from './dto/create-user.dto';
 
-// @UseGuards(AuthGuard)
+@UseGuards(AuthGuard)
 @Controller('users')
 export class UsersController {
     constructor(private readonly service: UsersService) {}
@@ -11,5 +11,10 @@ export class UsersController {
     @Post()
     async create(@Body() body: CreateUserDto) {
         return this.service.create(body);
+    }
+
+    @Get()
+    async fetchUsers() {
+        return this.service.findAll()
     }
 }

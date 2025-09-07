@@ -12,6 +12,15 @@ export class UsersService {
       private readonly prisma: PrismaService) {}
 
   async create(body): Promise<User> {
+    const { role } = await this.cls.get('auth')
+    if (role === 'SURVEYOR') {
+      throw new UnauthorizedException()
+    }
+
+    if (role === 'ADMIN' && body.role !== 'SURVEYOR') {
+      throw new UnauthorizedException()
+    }
+
     if (body.password && body.confirm_password && body.password !== body.confirm_password) {
       throw new HttpException('Passwords do not match', HttpStatus.BAD_REQUEST)
     }
@@ -34,6 +43,35 @@ export class UsersService {
         username: username,
       },
     });
+  }
+
+  async findAll(): Promise<User[]>{
+    const { role } = await this.cls.get('auth')
+    if (role === 'SURVEYOR') {
+      throw new UnauthorizedException()
+    }
+
+    if (role === 'ADMIN') {
+    return this.prisma.user.findMany({
+      where: {
+          role: 'SURVEYOR'
+      },
+      orderBy: {
+        name: 'asc'
+      }
+    })
+
+    }
+    return this.prisma.user.findMany({
+      where: {
+        NOT: {
+          role: 'SUPERADMIN'
+        }
+      },
+      orderBy: {
+        name: 'asc'
+      }
+    })
   }
 
 }

@@ -32,7 +32,7 @@ export class AuthService {
     );
 
     if (!user) {
-      throw new UnauthorizedException('Invalid username or password1');
+      throw new UnauthorizedException('Invalid username or password');
     }
     const isPasswordValid = await bcrypt.compare(
       data.password,
@@ -40,7 +40,7 @@ export class AuthService {
     );
 
     if (!isPasswordValid)
-      throw new UnauthorizedException('Invalid username or password2');
+      throw new UnauthorizedException('Invalid username or password');
 
     const payload = await this.generateJWT(user);
     return payload;
@@ -48,7 +48,7 @@ export class AuthService {
 
   async generateJWT(user: User): Promise<TokenPayload> {
     const tokenPayload = {
-      sub: user.id,
+      id: user.id,
       username: user.username,
       name: user.name,
       role: user.role
@@ -66,12 +66,14 @@ export class AuthService {
 
   async refresh(): Promise<TokenPayload> {
     const auth = this.cls.get('auth')
+    console.log('refresh', auth)
     const result = await this.verifyJwtToken(auth.token)
 
     if (!result) {
       throw new UnauthorizedException('Invalid Token')
     }
 
+    console.log('valid token')
     return result 
   }
 }
