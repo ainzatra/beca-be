@@ -12,6 +12,14 @@ export class CampaignService {
         return await this.prisma.campaign.findMany();
     }
 
+    async getAllCampaignsWithSurvey() {
+        return await this.prisma.campaign.findMany({
+            include: {
+                surveys: true
+            }
+        });
+    }
+
     async getCampaignById(id: string) {
         const campaign = await this.prisma.campaign.findUnique({
             where: { id },

@@ -15,6 +15,11 @@ export class CampaignController {
         return this.service.getAllCampaigns()
     }
 
+    @Get('with-survey') 
+    async findAllWithSurvey() {
+        return this.service.getAllCampaignsWithSurvey()
+    }
+
     @Post()
     async create(@Body() body: CreateCampaignDto) {
         return this.service.createCampaign(body)
