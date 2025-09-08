@@ -5,7 +5,7 @@ import { CreateCampaignDto } from './dto/create-campaign.dto';
 import { CampaignPhase } from '@prisma/client';
 import { UpdateCampaignDto } from './dto/update-campaign.dto';
 
-@UseGuards(AuthGuard)
+// @UseGuards(AuthGuard)
 @Controller('campaign')
 export class CampaignController {
     constructor(private readonly service: CampaignService){}
@@ -13,6 +13,11 @@ export class CampaignController {
     @Get()
     async findAll() {
         return this.service.getAllCampaigns()
+    }
+    
+    @Get('dashboard')
+    async getAllDashboard() {
+        return this.service.getDashboardInfo()
     }
 
     @Get('with-survey') 

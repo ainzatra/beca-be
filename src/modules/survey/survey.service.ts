@@ -56,7 +56,7 @@ export class SurveyService {
         }
         
         if (survey.campaign.activePhase !== survey.phase || !survey.isFinalized) {
-            throw new NotFoundException('Survey not found')
+            throw new NotFoundException('Survey not accepting anymore responses')
         }
 
         return survey

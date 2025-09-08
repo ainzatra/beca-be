@@ -109,4 +109,25 @@ export class CampaignService {
             data,
         });
     }
+
+    async getDashboardInfo() {
+        const [pre, mid, post] = await Promise.all([
+            this.prisma.campaign.count({ where: { activePhase: 'PRE' } }),
+            this.prisma.campaign.count({ where: { activePhase: 'MID' } }),
+            this.prisma.campaign.count({ where: { activePhase: 'POST' } }),
+        ])
+
+        const responseCount = await this.prisma.response.count()
+        const surveyorCount = await this.prisma.user.count({
+            where: {
+                role: 'SURVEYOR'
+            }
+        })
+        const campaignCount = { PRE: pre, MID: mid, POST: post, total: pre + mid + post }
+
+        const data = { campaignCount, responseCount, surveyorCount }
+        console.log('dashboard', data)
+        return data
+
+    }
 }

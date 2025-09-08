@@ -66,14 +66,12 @@ export class AuthService {
 
   async refresh(): Promise<TokenPayload> {
     const auth = this.cls.get('auth')
-    console.log('refresh', auth)
     const result = await this.verifyJwtToken(auth.token)
 
     if (!result) {
       throw new UnauthorizedException('Invalid Token')
     }
 
-    console.log('valid token')
     return result 
   }
 }
