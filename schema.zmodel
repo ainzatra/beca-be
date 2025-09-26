@@ -88,3 +88,9 @@ model Response {
 
 //   campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 // }
+
+model HistoryData {
+  id String @id @default(uuid())
+  json Json
+  createdAt DateTime @default(now())
+}

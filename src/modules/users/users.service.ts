@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { ENHANCED_PRISMA } from '@zenstackhq/server/nestjs';
 import { User } from '@prisma/client';
-import { PrismaService } from 'src/prisma.service';
+import { PrismaService } from 'src/modules/prisma/prisma.service';
 import bcrypt from 'bcrypt';
 import { ClsService } from 'nestjs-cls';
 import { UpdateUserDto } from './dto/update-user.dto';

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { CampaignPhase } from '@prisma/client';
-import { PrismaService } from 'src/prisma.service';
+import { PrismaService } from 'src/modules/prisma/prisma.service';
 import { CreateSurveyDto } from './dto/create-survey.dto';
 
 @Injectable()
@@ -11,67 +11,71 @@ export class SurveyService {
         return await this.prisma.survey.findMany({
             where: {
                 campaignId,
-                phase
+                phase,
             },
             select: {
                 id: true,
                 title: true,
-                phase: true
+                phase: true,
             },
             orderBy: {
-                title: 'asc'
-            }
-        })
+                title: 'asc',
+            },
+        });
     }
 
     async createSurvey(data: CreateSurveyDto) {
-        if (!data.form) data.form = '[]'
-        
-        return this.prisma.survey.create({ data })
+        if (!data.form) data.form = '[]';
+
+        return this.prisma.survey.create({ data });
     }
 
     async findById(id: string) {
         const survey = await this.prisma.survey.findUnique({
-            where: { id }
-        })
+            where: { id },
+        });
 
         if (!survey) {
-            throw new NotFoundException('Survey not found')
+            throw new NotFoundException('Survey not found');
         }
 
-        return survey
+        return survey;
     }
 
     async findPublicById(id: string) {
         const survey = await this.prisma.survey.findUnique({
             where: { id },
             include: {
-                campaign: true
-            }
-        })
+                campaign: true,
+            },
+        });
 
-        
         if (!survey) {
-            throw new NotFoundException('Survey not found')
-        }
-        
-        if (survey.campaign.activePhase !== survey.phase || !survey.isFinalized) {
-            throw new NotFoundException('Survey not accepting anymore responses')
+            throw new NotFoundException('Survey not found');
         }
 
-        return survey
+        if (
+            survey.campaign.activePhase !== survey.phase ||
+            !survey.isFinalized
+        ) {
+            throw new NotFoundException(
+                'Survey not accepting anymore responses',
+            );
+        }
+
+        return survey;
     }
 
     async updateSurvey(data, id: string) {
         return this.prisma.survey.update({
             where: { id },
-            data
-        })
+            data,
+        });
     }
 
     async deleteSurvey(id: string) {
         return this.prisma.survey.delete({
             where: { id },
-        })
+        });
     }
 }
