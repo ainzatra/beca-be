@@ -50,6 +50,7 @@ model Campaign {
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt()
   surveys     Survey[]
+  reports     AiReport[]
 }
 
 model Survey {
@@ -76,6 +77,16 @@ model Response {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt()
   survey    Survey   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+}
+
+model AiReport {
+  id         String        @id() @default(uuid())
+  campaignId String
+  phase      CampaignPhase
+  report     Json
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt()
+  campaign   Campaign      @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 }
 
 model HistoryData {

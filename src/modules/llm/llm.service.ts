@@ -831,4 +831,147 @@ export class LlmService {
 
         return obj;
     }
+
+    async analyzeSurveyResponses(
+        phaseData: any,
+        campaignTitle: string,
+        completedPhase: string,
+        previousReports?: any,
+    ) {
+        const systemPrompt = `You are an expert AI analyst for election campaign surveys. Analyze the provided surveys and responses from the completed campaign phase. A phase can have multiple surveys with different topics/questions.
+
+Important: Question IDs are random and not meaningful. Use the 'questionTitle' to identify question types and content. Analyze across all surveys, combining data for overall sentiments, issues, trends. For example:
+- Voter likelihood: titles about "likely to vote".
+- Issues: selections or text about priorities/concerns.
+- Qualities/support/feedback: open text responses for sentiment.
+- Sources: information sources.
+
+Key Analysis:
+- Sentiments: Classify each respondent's overall sentiment (positive/neutral/negative) towards the candidate/election, based on open responses across surveys. Do not aggregate totals; instead, provide the sentiment for each response ID.
+- Group by location: Extract from 'address' field, normalize to city/barangay (e.g., "Manila", "Barangay 1"). For each location, group the sentiments by response ID.
+- Top Issues: Identify 3-5 key issues from all surveys (selections and open text). For each: name, array of response IDs that mentioned the issue, majority sentiment (Positive/Negative/Neutral based on the sentiments of those respondents), trend (up/down/flat based on frequency/urgency compared to previous report if provided).
+- Performance: Infer trends from voter likelihood, sources, qualities across surveys. Estimate overall confidence score (0-100) for campaign success.
+- Summary: Concise 200-300 word narrative for non-technical readers, highlighting findings from all surveys and recommendations. If previous report is provided, compare trends and changes.
+
+Input:
+- Surveys: Array of {title, form: [{id, title: questionTitle, type, options, required}], responses: [{id: responseId, name, address: location, data: [{questionId, questionTitle, value}]}]}
+- Campaign: "${campaignTitle}"
+- Phase: "${completedPhase}"
+- Previous Report: ${previousReports.length > 0 ? JSON.stringify(previousReports, null, 2) : 'None (first phase)'}
+
+Output ONLY valid JSON, no other text. Structure matches frontend:
+
+{
+    "summary": "Narrative summary...",
+    "confidence": number (0-100),
+    "topIssues": [
+        {
+            "issue": "string",
+            "responses": ["responseId1", "responseId2"],
+            "sentiment": "Positive" | "Negative" | "Neutral",
+            "trend": "up" | "down" | "flat"
+        }
+    ],
+    "locationSentiment": [
+        {
+            "location": "string",
+            "sentiments": [
+                {
+                "responseId": "string",
+                "sentiment": "positive" | "neutral" | "negative"
+                }
+            ]
+        }
+    ]
+}`;
+
+        const userPrompt = `Campaign: ${campaignTitle}
+Completed Phase: ${completedPhase}
+
+${previousReports.length > 0 ? `Previous Report: ${JSON.stringify(previousReports, null, 2)}` : ''}
+
+Phase Surveys Data: ${JSON.stringify(phaseData, null, 2)}`;
+
+        try {
+            console.log('Sending prompt to AI...');
+            const completion = await this.openai.chat.completions.create({
+                model: 'x-ai/grok-4-fast:free',
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPrompt },
+                ],
+                response_format: { type: 'json_object' },
+                temperature: 0.3,
+                max_tokens: 10000,
+            });
+
+            if (completion.usage) {
+                // log tokens
+                console.log('Prompt tokens:', completion.usage.prompt_tokens);
+                console.log(
+                    'Completion tokens:',
+                    completion.usage.completion_tokens,
+                );
+                console.log('Total tokens:', completion.usage.total_tokens);
+            }
+            const content = completion.choices[0].message.content;
+            if (!content) throw new Error('No content in LLM response');
+
+            const parsed = JSON.parse(content);
+            console.log('Counting mentions and sentiments by location...');
+            const { topIssues, locationSentiment } = parsed;
+
+            topIssues.forEach(
+                (issue) => (issue.mentions = issue.responses?.length || 0),
+            );
+
+            // parsed.topIssues = topIssues;
+            let totalResponses = 0;
+            let positive = 0;
+            let negative = 0;
+            let neutral = 0;
+
+            locationSentiment.forEach((loc) => {
+                loc.positive = 0;
+                loc.negative = 0;
+                loc.neutral = 0;
+                for (const response of loc.sentiments) {
+                    totalResponses++;
+                    switch (response.sentiment) {
+                        case 'positive':
+                            loc.positive++;
+                            positive++;
+                            break;
+                        case 'negative':
+                            loc.negative++;
+                            negative++;
+                            break;
+                        case 'neutral':
+                            loc.neutral++;
+                            neutral++;
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            });
+
+            // parsed.locationSentiment = locationSentiment;
+
+            const countedResponse = {
+                ...parsed,
+                topIssues,
+                locationSentiment,
+                totalResponses,
+                positive,
+                negative,
+                neutral,
+            };
+            this.logger.log('Survey analysis completed successfully');
+            return countedResponse;
+        } catch (error) {
+            this.logger.error('Error in analyzeSurveyResponses:', error);
+            throw error;
+        }
+    }
 }

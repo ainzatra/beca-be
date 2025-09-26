@@ -7,12 +7,16 @@ import {
 } from '@nestjs/common';
 import { CampaignPhase, CampaignStatus } from '@prisma/client';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
+import { LlmService } from '../llm/llm.service';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
 import { UpdateCampaignDto } from './dto/update-campaign.dto';
 
 @Injectable()
 export class CampaignService {
-    constructor(private readonly prisma: PrismaService) {}
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly llmService: LlmService,
+    ) {}
 
     async getAllCampaigns() {
         return await this.prisma.campaign.findMany();
@@ -84,7 +88,7 @@ export class CampaignService {
     }
 
     async updateCampaign(id: string, data: UpdateCampaignDto) {
-        const campaign = await this.prisma.campaign.findUnique({
+        const oldCampaign = await this.prisma.campaign.findUnique({
             where: {
                 id,
             },
@@ -97,15 +101,13 @@ export class CampaignService {
             },
         });
 
-        if (!campaign) {
+        if (!oldCampaign) {
             throw new NotFoundException('Campaign not found');
         }
 
-        // if (data.activePhase && campaign.activePhase == data.activePhase) {
-        //     throw new HttpException('Bad Request', HttpStatus.BAD_REQUEST)
-        // }
+        const oldPhase = oldCampaign.activePhase;
 
-        if (data.activePhase && campaign._count.surveys === 0) {
+        if (data.activePhase && oldCampaign._count.surveys === 0) {
             throw new HttpException(
                 'Requirements not met',
                 HttpStatus.BAD_REQUEST,
@@ -116,10 +118,16 @@ export class CampaignService {
             data.status = 'COMPLETED';
         }
 
-        return this.prisma.campaign.update({
+        const updatedCampaign = await this.prisma.campaign.update({
             where: { id },
             data,
         });
+
+        if (data.activePhase && data.activePhase !== oldPhase) {
+            await this.triggerPhaseAnalysis(id, oldPhase);
+        }
+
+        return updatedCampaign;
     }
 
     async getDashboardInfo() {
@@ -145,5 +153,113 @@ export class CampaignService {
         const data = { campaignCount, responseCount, surveyorCount };
         console.log('dashboard', data);
         return data;
+    }
+    private async triggerPhaseAnalysis(
+        campaignId: string,
+        completedPhase: CampaignPhase,
+    ) {
+        // Fetch all finalized surveys in the completed phase
+
+        const finalizedSurveys = await this.prisma.survey.findMany({
+            where: {
+                campaignId,
+                phase: completedPhase,
+                isFinalized: true,
+            },
+            include: {
+                responses: true,
+            },
+        });
+
+        if (finalizedSurveys.length === 0) {
+            console.log(
+                `No finalized surveys found for phase ${completedPhase} in campaign ${campaignId}`,
+            );
+            return;
+        }
+
+        // Aggregate all surveys and their responses
+        const phaseData = finalizedSurveys.map((survey) => ({
+            title: survey.title,
+            form: JSON.parse(survey.form), // Parse form string to array
+            responses: survey.responses.map((response) => ({
+                id: response.id,
+                name: response.name,
+                address: response.address,
+                data: JSON.parse(response.data), // Parse response data to array of answers
+            })),
+        }));
+
+        // Fetch campaign title
+        const campaign = await this.prisma.campaign.findUnique({
+            where: { id: campaignId },
+            select: { title: true },
+        });
+
+        if (!campaign) {
+            throw new NotFoundException('Campaign not found');
+        }
+
+        // Fetch previous report (latest for campaign)
+        const previousReports = await this.prisma.aiReport.findMany({
+            where: {
+                campaignId,
+            },
+            select: {
+                report: true,
+            },
+            orderBy: {
+                createdAt: 'desc',
+            },
+        });
+
+        try {
+            const analysisResult = await this.llmService.analyzeSurveyResponses(
+                phaseData,
+                campaign.title,
+                completedPhase,
+                previousReports,
+            );
+
+            // Store in AiReport
+            await this.prisma.aiReport.create({
+                data: {
+                    campaignId: campaignId,
+                    phase: completedPhase,
+                    report: analysisResult,
+                },
+            });
+
+            console.log(JSON.stringify(analysisResult, null, 2));
+
+            console.log(
+                `Analysis for phase ${completedPhase} stored successfully`,
+            );
+        } catch (error) {
+            console.error('Error triggering phase analysis:', error);
+            // Don't throw, as phase update should succeed even if analysis fails
+        }
+    }
+
+    async getPhaseAnalysis(campaignId: string) {
+        const analysis = await this.prisma.aiReport.findMany({
+            where: {
+                campaignId,
+            },
+            orderBy: {
+                createdAt: 'desc',
+            },
+        });
+
+        if (!analysis) throw new NotFoundException('No AI report found');
+
+        analysis.forEach((result) => {
+            const report = result.report as any;
+            report?.topIssues?.forEach((issue: any) => delete issue.responses);
+            report?.locationSentiment?.forEach(
+                (loc: any) => delete loc.sentiments,
+            );
+        });
+        return analysis;
     }
 }

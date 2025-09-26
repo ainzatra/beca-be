@@ -9,5 +9,6 @@ import { S3Service } from 'src/s3.service';
     controllers: [LlmController],
     providers: [LlmService, S3Service],
     imports: [PrismaModule],
+    exports: [LlmService],
 })
 export class LlmModule {}
