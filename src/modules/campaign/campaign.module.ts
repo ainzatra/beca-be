@@ -3,10 +3,11 @@ import { CampaignService } from './campaign.service';
 import { CampaignController } from './campaign.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { LlmModule } from '../llm/llm.module';
+import { CampaignListener } from './campaign.listener';
 
 @Module({
     imports: [PrismaModule, LlmModule],
-    providers: [CampaignService],
+    providers: [CampaignService, CampaignListener],
     controllers: [CampaignController],
 })
 export class CampaignModule {}

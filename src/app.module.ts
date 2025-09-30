@@ -11,6 +11,7 @@ import { SurveyModule } from './modules/survey/survey.module';
 import { ResponseModule } from './modules/response/response.module';
 import { LlmModule } from './modules/llm/llm.module';
 import { PrismaModule } from './modules/prisma/prisma.module';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 
 @Module({
     imports: [
@@ -28,6 +29,7 @@ import { PrismaModule } from './modules/prisma/prisma.module';
         ResponseModule,
         LlmModule,
         PrismaModule,
+        EventEmitterModule.forRoot(),
     ],
     controllers: [],
     providers: [

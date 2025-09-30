@@ -10,12 +10,14 @@ import { PrismaService } from 'src/modules/prisma/prisma.service';
 import { LlmService } from '../llm/llm.service';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
 import { UpdateCampaignDto } from './dto/update-campaign.dto';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
 export class CampaignService {
     constructor(
         private readonly prisma: PrismaService,
         private readonly llmService: LlmService,
+        private readonly emitter: EventEmitter2,
     ) {}
 
     async getAllCampaigns() {
@@ -124,7 +126,11 @@ export class CampaignService {
         });
 
         if (data.activePhase && data.activePhase !== oldPhase) {
-            await this.triggerPhaseAnalysis(id, oldPhase);
+            // await this.triggerPhaseAnalysis(id, oldPhase);
+            this.emitter.emit('campaign.phaseChanged', {
+                campaignId: id,
+                completedPhase: oldPhase,
+            });
         }
 
         return updatedCampaign;
@@ -154,7 +160,8 @@ export class CampaignService {
         console.log('dashboard', data);
         return data;
     }
-    private async triggerPhaseAnalysis(
+
+    public async triggerPhaseAnalysis(
         campaignId: string,
         completedPhase: CampaignPhase,
     ) {
