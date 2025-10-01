@@ -281,10 +281,10 @@ export class LlmService {
         // );
 
         const parsedBarangay = this.parseElectionPrecincts(precinctText);
-        console.log(
-            'Prased barangay: ',
-            JSON.stringify(parsedBarangay, null, 2),
-        );
+        // console.log(
+        //     'Prased barangay: ',
+        //     JSON.stringify(parsedBarangay, null, 2),
+        // );
 
         // Create reverse map: precinct -> barangay using parsedBarangay
         const precinctToBarangay = new Map<string, string>();
@@ -356,7 +356,7 @@ export class LlmService {
                 this.logger.warn(
                     `No clusters found in vote file ${i + 1} – check for parsing issues or empty PDF.`,
                 );
-                console.log('vote text without cluster', voteText);
+                // console.log('vote text without cluster', voteText);
             }
 
             const uniqueClusters = new Map();
@@ -472,7 +472,7 @@ export class LlmService {
                     candidates,
                     barangay,
                 };
-                console.log(cluster);
+                // console.log(cluster);
                 processedClusters.push(cluster);
             }
 
@@ -491,10 +491,10 @@ export class LlmService {
                     }
                 }
             }
-            console.log(
-                'Sample aggregated votes:',
-                Object.fromEntries(totalVotesByCandidate),
-            );
+            // console.log(
+            //     'Sample aggregated votes:',
+            //     Object.fromEntries(totalVotesByCandidate),
+            // );
 
             // Return processed data (adjust as needed for your app)
             // Aggregate votes per barangay per candidate
@@ -539,12 +539,12 @@ export class LlmService {
             });
         }
 
-        voteResults.forEach((result, index) => {
-            console.log(
-                `File ${index} Results:`,
-                JSON.stringify(result, null, 2),
-            );
-        });
+        // voteResults.forEach((result, index) => {
+        //     console.log(
+        //         `File ${index} Results:`,
+        //         JSON.stringify(result, null, 2),
+        //     );
+        // });
 
         await this.prisma.historyData.create({
             data: { year: year.toString(), position, json: voteResults[0] },
@@ -786,14 +786,14 @@ export class LlmService {
                         continue; // Skip obvious fragments
                     }
                     // Still skip if not known - log for debug
-                    console.log(
-                        `Possible barangay skipped: ${candidate} (line ${i})`,
-                    ); // DEBUG
+                    // console.log(
+                    //     `Possible barangay skipped: ${candidate} (line ${i})`,
+                    // ); // DEBUG
                     continue;
                 }
 
                 // Valid barangay found
-                console.log(`Detected barangay: ${candidate} (line ${i})`); // DEBUG
+                // console.log(`Detected barangay: ${candidate} (line ${i})`); // DEBUG
                 if (currentBarangay) {
                     // Save previous (populate its set if not already)
                     if (!result.has(currentBarangay)) {
@@ -822,15 +822,15 @@ export class LlmService {
                                     addedCount++;
                                 }
                             } else {
-                                console.log(
-                                    `Invalid precinct skipped: ${potential} -> ${cleanPrecinct} (in ${currentBarangay})`,
-                                ); // DEBUG: Catches "5831S"
+                                // console.log(
+                                //     `Invalid precinct skipped: ${potential} -> ${cleanPrecinct} (in ${currentBarangay})`,
+                                // ); // DEBUG: Catches "5831S"
                             }
                         });
                         if (addedCount > 0) {
-                            console.log(
-                                `Added ${addedCount} precincts to ${currentBarangay}: [${Array.from(precinctSet).slice(-addedCount).join(', ')}]`,
-                            ); // DEBUG sample
+                            // console.log(
+                            //     `Added ${addedCount} precincts to ${currentBarangay}: [${Array.from(precinctSet).slice(-addedCount).join(', ')}]`,
+                            // ); // DEBUG sample
                         }
                     }
                 }
