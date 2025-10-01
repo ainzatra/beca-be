@@ -220,7 +220,12 @@ export class LlmService {
     // //         return { savedIds };
     //     }
 
-    async countVotes(year: number, voteFiles: any[], precinctFile: any) {
+    async countVotes(
+        year: number,
+        position: string,
+        voteFiles: any[],
+        precinctFile: any,
+    ) {
         this.logger.log(`Starting vote counting for year ${year}`);
 
         const voteTexts: string[] = [];
@@ -519,6 +524,10 @@ export class LlmService {
                 `File ${index} Results:`,
                 JSON.stringify(result, null, 2),
             );
+        });
+
+        await this.prisma.historyData.create({
+            data: { year: year.toString(), position, json: voteResults[0] },
         });
         return voteResults;
     }
@@ -973,5 +982,12 @@ Phase Surveys Data: ${JSON.stringify(phaseData, null, 2)}`;
             this.logger.error('Error in analyzeSurveyResponses:', error);
             throw error;
         }
+    }
+
+    async getHistory(position: string, year: string) {
+        return this.prisma.historyData.findMany({
+            where: { position, year },
+            orderBy: { createdAt: 'desc' },
+        });
     }
 }

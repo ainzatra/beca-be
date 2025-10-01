@@ -5,6 +5,8 @@ import {
     UseInterceptors,
     UploadedFiles,
     BadRequestException,
+    Get,
+    Query,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { LlmService } from './llm.service';
@@ -16,12 +18,12 @@ export class LlmController {
     @Post('count-votes')
     @UseInterceptors(
         FileFieldsInterceptor([
-            { name: 'voteFiles', maxCount: 10 },
+            { name: 'voteFiles', maxCount: 1 },
             { name: 'precinctFile', maxCount: 1 },
         ]),
     )
     async countVotes(
-        @Body() body: { year: number },
+        @Body() body: { year: number; position: string },
         @UploadedFiles()
         files: {
             voteFiles?: Express.Multer.File[];
@@ -32,6 +34,10 @@ export class LlmController {
             throw new BadRequestException('Year is required');
         }
 
+        if (!body.position) {
+            throw new BadRequestException('Position is required');
+        }
+
         if (!files.precinctFile || files.precinctFile.length === 0) {
             throw new BadRequestException('Precinct file is required');
         }
@@ -40,12 +46,27 @@ export class LlmController {
             throw new BadRequestException('At least one vote file is required');
         }
 
-        const result = await this.llmService.countVotes(
+        return this.llmService.countVotes(
             body.year,
+            body.position,
             files.voteFiles,
             files.precinctFile[0],
         );
+    }
 
-        return result;
+    @Get('history')
+    async getHistory(
+        @Query('position') position: string,
+        @Query('year') year: string,
+    ) {
+        if (!position) {
+            throw new BadRequestException('Position is required');
+        }
+
+        if (!year) {
+            throw new BadRequestException('Year is required');
+        }
+
+        return this.llmService.getHistory(position, year);
     }
 }

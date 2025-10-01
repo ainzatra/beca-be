@@ -91,6 +91,8 @@ model AiReport {
 
 model HistoryData {
   id String @id @default(uuid())
+  year String
+  position String
   json Json
   createdAt DateTime @default(now())
 }
