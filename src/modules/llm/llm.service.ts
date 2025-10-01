@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import OpenAI from 'openai';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from 'src/s3.service';
@@ -226,6 +226,21 @@ export class LlmService {
         voteFiles: any[],
         precinctFile: any,
     ) {
+        // Check if we already have data for this year and position
+        const existing = await this.prisma.historyData.findFirst({
+            where: { year: year.toString(), position },
+        });
+        if (existing) {
+            const temp = position.split(' ');
+            const capitalized = temp.map(
+                (word) =>
+                    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
+            );
+            console.log({ temp });
+            throw new BadRequestException(
+                `Data for ${year} ${capitalized.join(' ')} already exists.`,
+            );
+        }
         this.logger.log(`Starting vote counting for year ${year}`);
 
         const voteTexts: string[] = [];
@@ -509,6 +524,11 @@ export class LlmService {
                 'Aggregated votes per barangay:',
                 JSON.stringify(aggregated, null, 2),
             );
+            if (Object.keys(aggregated).length === 0) {
+                throw new BadRequestException(
+                    `No votes extracted from vote file. Extraction may have failed.`,
+                );
+            }
             voteResults.push({
                 year,
                 total_clusters: processedClusters.length,
@@ -988,6 +1008,12 @@ Phase Surveys Data: ${JSON.stringify(phaseData, null, 2)}`;
         return this.prisma.historyData.findMany({
             where: { position, year },
             orderBy: { createdAt: 'desc' },
+        });
+    }
+
+    async deleteHistory(id: string, position: string, year: string) {
+        return this.prisma.historyData.delete({
+            where: { id, year, position },
         });
     }
 }

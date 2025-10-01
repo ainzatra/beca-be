@@ -95,5 +95,7 @@ model HistoryData {
   position String
   json Json
   createdAt DateTime @default(now())
+
+  @@unique([year, position])
 }
 

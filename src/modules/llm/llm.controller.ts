@@ -7,10 +7,15 @@ import {
     BadRequestException,
     Get,
     Query,
+    Delete,
+    Param,
+    UseGuards,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { LlmService } from './llm.service';
+import { AuthGuard } from '../auth/guard/auth.guard';
 
+@UseGuards(AuthGuard)
 @Controller('llm')
 export class LlmController {
     constructor(private readonly llmService: LlmService) {}
@@ -68,5 +73,14 @@ export class LlmController {
         }
 
         return this.llmService.getHistory(position, year);
+    }
+
+    @Delete('history/:id')
+    async deleteHistory(
+        @Query('position') position: string,
+        @Query('year') year: string,
+        @Param('id') id: string,
+    ) {
+        return this.llmService.deleteHistory(id, position, year);
     }
 }
