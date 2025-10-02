@@ -184,7 +184,13 @@ export class CampaignService {
             );
             return;
         }
-
+        const totalResponses = finalizedSurveys.reduce(
+            (sum, survey) => sum + survey.responses.length,
+            0,
+        );
+        console.log(
+            `Found ${finalizedSurveys.length} finalized surveys with a total of ${totalResponses} responses for phase ${completedPhase} in campaign ${campaignId}`,
+        );
         // Aggregate all surveys and their responses
         const phaseData = finalizedSurveys.map((survey) => ({
             title: survey.title,
@@ -197,10 +203,15 @@ export class CampaignService {
             })),
         }));
 
-        // Fetch campaign title
+        // Fetch campaign details
         const campaign = await this.prisma.campaign.findUnique({
             where: { id: campaignId },
-            select: { title: true },
+            select: {
+                title: true,
+                candidateName: true,
+                candidateParty: true,
+                candidatePosition: true,
+            },
         });
 
         if (!campaign) {
@@ -225,7 +236,11 @@ export class CampaignService {
                 phaseData,
                 campaign.title,
                 completedPhase,
+                campaignId,
                 previousReports,
+                campaign.candidateName,
+                campaign.candidateParty,
+                campaign.candidatePosition,
             );
 
             // Store in AiReport

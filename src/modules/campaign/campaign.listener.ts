@@ -7,7 +7,7 @@ import { OnEvent } from '@nestjs/event-emitter';
 export class CampaignListener {
     constructor(private readonly service: CampaignService) {}
 
-    @OnEvent('campaign.phaseChanged')
+    // @OnEvent('campaign.phaseChanged')
     async handlePhaseChange(payload: {
         campaignId: string;
         completedPhase: CampaignPhase;

@@ -30,6 +30,7 @@
     "@prisma/client": "^6.13.0",
     "@zenstackhq/runtime": "2.18.1",
     "@zenstackhq/server": "^2.18.1",
+    "apify-client": "^2.17.0",
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",

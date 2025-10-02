@@ -12,6 +12,7 @@ import { ResponseModule } from './modules/response/response.module';
 import { LlmModule } from './modules/llm/llm.module';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { FacebookModule } from './modules/facebook/facebook.module';
 
 @Module({
     imports: [
@@ -30,6 +31,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
         LlmModule,
         PrismaModule,
         EventEmitterModule.forRoot(),
+        FacebookModule,
     ],
     controllers: [],
     providers: [

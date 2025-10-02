@@ -43,11 +43,16 @@ model Campaign {
   description String?
   activePhase CampaignPhase @default(PRE)
   status  CampaignStatus @default(DRAFT)
+  candidateName String @default("")
+  candidatePosition String @default("")
+  candidateParty String @default("")
+  fbUrl String @default("")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   surveys Survey[]
   reports AiReport[]
+  facebookPosts FacebookPost[]
 }
 
 model Survey {
@@ -98,4 +103,42 @@ model HistoryData {
 
   @@unique([year, position])
 }
+
+model FacebookPost {
+  id            String         @id @default(uuid())
+  campaignId    String
+  phase         CampaignPhase  // Link post data to a specific campaign phase
+  content       String?
+  url           String         @unique // URL to the Facebook post
+  timestamp     DateTime
+  likes         Int            @default(0)
+  shares        Int            @default(0)
+  commentsCount Int            @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  campaign      Campaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  facebookComments FacebookComment[]
+
+  @@unique([campaignId, phase, url])
+}
+
+model FacebookComment {
+  id            String    @id @default(uuid())
+  postId        String
+  phase         CampaignPhase  // Link comment data to a specific campaign phase
+  content       String?
+  authorName    String?
+  timestamp     DateTime
+  url           String
+  likes         Int       @default(0)
+  replies       Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  post          FacebookPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, phase, url])
+}
+
 

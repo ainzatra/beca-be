@@ -865,26 +865,63 @@ export class LlmService {
         phaseData: any,
         campaignTitle: string,
         completedPhase: string,
+        campaignId: string,
         previousReports?: any,
+        candidateName?: string,
+        candidateParty?: string,
+        candidatePosition?: string,
     ) {
-        const systemPrompt = `You are an expert AI analyst for election campaign surveys. Analyze the provided surveys and responses from the completed campaign phase. A phase can have multiple surveys with different topics/questions.
+        // Fetch Facebook data for the campaign and phase
+        const facebookPosts = await this.prisma.facebookPost.findMany({
+            where: {
+                campaignId,
+                phase: completedPhase as any,
+            },
+            include: {
+                facebookComments: true,
+            },
+        });
 
-Important: Question IDs are random and not meaningful. Use the 'questionTitle' to identify question types and content. Analyze across all surveys, combining data for overall sentiments, issues, trends. For example:
+        const facebookData = facebookPosts.map((post) => ({
+            postId: post.id,
+            content: post.content,
+            likes: post.likes,
+            shares: post.shares,
+            commentsCount: post.commentsCount,
+            timestamp: post.timestamp,
+            comments: post.facebookComments.map((comment) => ({
+                commentId: comment.id,
+                content: comment.content,
+                authorName: comment.authorName,
+                likes: comment.likes,
+                replies: comment.replies,
+                timestamp: comment.timestamp,
+            })),
+        }));
+
+        const systemPrompt = `You are an expert AI analyst for election campaign surveys and social media data. Analyze the provided surveys, responses, and Facebook posts/comments from the completed campaign phase. A phase can have multiple surveys with different topics/questions, and social media data provides additional public sentiment.
+
+Important: Question IDs are random and not meaningful. Use the 'questionTitle' to identify question types and content. Analyze across all surveys and Facebook data, combining data for overall sentiments, issues, trends. For example:
 - Voter likelihood: titles about "likely to vote".
 - Issues: selections or text about priorities/concerns.
 - Qualities/support/feedback: open text responses for sentiment.
 - Sources: information sources.
+- Social Media: Analyze post engagement (likes, shares, comments) and comment sentiment/content for public opinion.
 
 Key Analysis:
-- Sentiments: Classify each respondent's overall sentiment (positive/neutral/negative) towards the candidate/election, based on open responses across surveys. Do not aggregate totals; instead, provide the sentiment for each response ID.
-- Group by location: Extract from 'address' field, normalize to city/barangay (e.g., "Manila", "Barangay 1"). For each location, group the sentiments by response ID.
-- Top Issues: Identify 3-5 key issues from all surveys (selections and open text). For each: name, array of response IDs that mentioned the issue, majority sentiment (Positive/Negative/Neutral based on the sentiments of those respondents), trend (up/down/flat based on frequency/urgency compared to previous report if provided).
-- Performance: Infer trends from voter likelihood, sources, qualities across surveys. Estimate overall confidence score (0-100) for campaign success.
-- Summary: Concise 200-300 word narrative for non-technical readers, highlighting findings from all surveys and recommendations. If previous report is provided, compare trends and changes.
+- Sentiments: Classify each survey respondent's overall sentiment (positive/neutral/negative) towards the candidate/election, based on open responses across surveys. Also analyze Facebook comments for public sentiment trends. Do not aggregate totals; instead, provide the sentiment for each response ID and summarize comment sentiments.
+- Group by location: Extract from survey 'address' field, normalize to city/barangay (e.g., "Manila", "Barangay 1"). For each location, group the survey sentiments by response ID. Note any location mentions in Facebook comments.
+- Top Issues: Identify 3-5 key issues from all surveys and Facebook posts/comments (selections, open text, comment content). For each: name, array of survey response IDs that mentioned the issue, majority sentiment (Positive/Negative/Neutral based on the sentiments of those respondents), trend (up/down/flat based on frequency/urgency compared to previous report if provided). Include social media engagement metrics.
+- Performance: Infer trends from voter likelihood, sources, qualities across surveys, and social media engagement (likes, shares, comment volume). Estimate overall confidence score (0-100) for campaign success, factoring in both survey data and public social media sentiment.
+- Summary: Concise 200-300 word narrative for non-technical readers, highlighting qualitative findings from all surveys and social media data, focusing on sentiments, issues, and trends without quantitative metrics or participant counts, and recommendations. If previous report is provided, compare trends and changes.
 
 Input:
 - Surveys: Array of {title, form: [{id, title: questionTitle, type, options, required}], responses: [{id: responseId, name, address: location, data: [{questionId, questionTitle, value}]}]}
+- Facebook Data: Array of {postId, content, likes, shares, commentsCount, timestamp, comments: [{commentId, content, authorName, likes, replies, timestamp}]}
 - Campaign: "${campaignTitle}"
+- Candidate Name: "${candidateName || 'N/A'}"
+- Party: "${candidateParty || 'N/A'}"
+- Position: "${candidatePosition || 'N/A'}"
 - Phase: "${completedPhase}"
 - Previous Report: ${previousReports.length > 0 ? JSON.stringify(previousReports, null, 2) : 'None (first phase)'}
 
@@ -915,11 +952,16 @@ Output ONLY valid JSON, no other text. Structure matches frontend:
 }`;
 
         const userPrompt = `Campaign: ${campaignTitle}
+Candidate Name: ${candidateName || 'N/A'}
+Party: ${candidateParty || 'N/A'}
+Position: ${candidatePosition || 'N/A'}
 Completed Phase: ${completedPhase}
 
 ${previousReports.length > 0 ? `Previous Report: ${JSON.stringify(previousReports, null, 2)}` : ''}
 
-Phase Surveys Data: ${JSON.stringify(phaseData, null, 2)}`;
+Phase Surveys Data: ${JSON.stringify(phaseData, null, 2)}
+
+Facebook Data: ${JSON.stringify(facebookData, null, 2)}`;
 
         try {
             console.log('Sending prompt to AI...');

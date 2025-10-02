@@ -42,15 +42,20 @@ model User {
 }
 
 model Campaign {
-  id          String         @id() @default(uuid())
-  title       String
-  description String?
-  activePhase CampaignPhase  @default(PRE)
-  status      CampaignStatus @default(DRAFT)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt()
-  surveys     Survey[]
-  reports     AiReport[]
+  id                String         @id() @default(uuid())
+  title             String
+  description       String?
+  activePhase       CampaignPhase  @default(PRE)
+  status            CampaignStatus @default(DRAFT)
+  candidateName     String         @default("")
+  candidatePosition String         @default("")
+  candidateParty    String         @default("")
+  fbUrl             String         @default("")
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt()
+  surveys           Survey[]
+  reports           AiReport[]
+  facebookPosts     FacebookPost[]
 }
 
 model Survey {
@@ -97,4 +102,39 @@ model HistoryData {
   createdAt DateTime @default(now())
 
   @@unique([year, position])
+}
+
+model FacebookPost {
+  id               String            @id() @default(uuid())
+  campaignId       String
+  phase            CampaignPhase
+  content          String?
+  url              String            @unique()
+  timestamp        DateTime
+  likes            Int               @default(0)
+  shares           Int               @default(0)
+  commentsCount    Int               @default(0)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt()
+  campaign         Campaign          @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  facebookComments FacebookComment[]
+
+  @@unique([campaignId, phase, url])
+}
+
+model FacebookComment {
+  id         String        @id() @default(uuid())
+  postId     String
+  phase      CampaignPhase
+  content    String?
+  authorName String?
+  timestamp  DateTime
+  url        String
+  likes      Int           @default(0)
+  replies    Int           @default(0)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt()
+  post       FacebookPost  @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, phase, url])
 }

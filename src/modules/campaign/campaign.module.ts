@@ -9,5 +9,6 @@ import { CampaignListener } from './campaign.listener';
     imports: [PrismaModule, LlmModule],
     providers: [CampaignService, CampaignListener],
     controllers: [CampaignController],
+    exports: [CampaignService],
 })
 export class CampaignModule {}
