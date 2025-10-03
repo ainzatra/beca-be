@@ -37,189 +37,6 @@ export class LlmService {
         });
     }
 
-    //     async countVotes(year: number, voteFiles: any[], precinctFile: any) {
-    //         this.logger.log(`Starting vote counting for year ${year}`);
-
-    //         const voteTexts: string[] = [];
-    //         let precinctText: string;
-
-    //         // Parse vote files
-    //         for (let i = 0; i < voteFiles.length; i++) {
-    //             try {
-    //                 const dataBuffer = voteFiles[i].buffer;
-    //                 const data = await pdfParse(dataBuffer);
-    //                 voteTexts.push(data.text);
-    //                 this.logger.log(
-    //                     `Parsed vote file ${i + 1}: ${data.text.length} characters`,
-    //                 );
-    //             } catch (error) {
-    //                 this.logger.error(`Failed to parse vote file ${i + 1}:`, error);
-    //                 throw error;
-    //             }
-    //         }
-
-    //         // Parse precinct file
-    //         try {
-    //             const precinctBuffer = precinctFile.buffer;
-    //             const precinctData = await pdfParse(precinctBuffer);
-    //             precinctText = precinctData.text;
-    //             this.logger.log(
-    //                 `Parsed precinct file: ${precinctText.length} characters`,
-    //             );
-    //         } catch (error) {
-    //             this.logger.error('Failed to parse precinct file:', error);
-    //             throw error;
-    //         }
-
-    // //         // LLM parsing
-    // //         const systemPrompt = `You are an expert at parsing election vote data from scanned PDF text. Your output must be a valid JSON object with a key "data" containing an array of vote records. Each record should be an object with: "location" (string, e.g., "Quezon City, Barangay X" - map using precinct info), "position" (string, e.g., "Mayor"), "candidate" (string, full name), "votes" (number). Only include valid, complete data. If no data, return empty array.`;
-
-    // //         const parsedData: any[][] = [];
-
-    // //         for (let i = 0; i < voteTexts.length; i++) {
-    // //             const voteText = voteTexts[i];
-    // //             const userPrompt = `Precinct mapping information:
-    // // ${precinctText}
-
-    // // Vote data from file ${i + 1}:
-    // // ${voteText}
-
-    // // Instructions:
-    // // - Identify precinct clusters and individual precinct numbers in the vote data.
-    // // - For each precinct, use the mapping to find the corresponding location (city, barangay, etc.).
-    // // - Extract candidates, their positions (e.g., Mayor, Vice Mayor, Councilor), and vote counts.
-    // // - Group votes by location, position, and candidate. If multiple precincts in same location, sum votes.
-    // // - Ourput strictly in JSON values should be in ALL CAPS.`;
-
-    // //             try {
-    // //                 this.logger.log('Starting to prompt AI...');
-    // //                 // console.log(userPrompt);
-    // //                 // const completion = (await this.openai.chat.completions.create({
-    // //                 //     model: 'x-ai/grok-4-fast:free',
-    // //                 //     messages: [
-    // //                 //         { role: 'system', content: systemPrompt },
-    // //                 //         { role: 'user', content: userPrompt },
-    // //                 //     ],
-    // //                 //     response_format: { type: 'json_object' },
-    // //                 //     temperature: 0.1,
-    // //                 //     stream: true,
-    // //                 // })) as any;
-
-    // //                 const response = await fetch(
-    // //                     'https://openrouter.ai/api/v1/chat/completions',
-    // //                     {
-    // //                         method: 'POST',
-    // //                         headers: {
-    // //                             Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-    // //                             'Content-Type': 'application/json',
-    // //                         },
-    // //                         body: JSON.stringify({
-    // //                             model: 'google/gemini-2.5-flash-lite',
-    // //                             messages: [
-    // //                                 { role: 'system', content: systemPrompt },
-    // //                                 { role: 'user', content: userPrompt },
-    // //                             ],
-    // //                             stream: true,
-    // //                         }),
-    // //                     },
-    // //                 );
-
-    // //                 const reader = response.body?.getReader();
-    // //                 if (!reader) {
-    // //                     throw new Error();
-    // //                 }
-
-    // //                 const decoder = new TextDecoder();
-    // //                 let buffer = '';
-    // //                 let results = '';
-    // //                 try {
-    // //                     while (true) {
-    // //                         const { done, value } = await reader.read();
-    // //                         if (done) break;
-    // //                         // Append new chunk to buffer
-    // //                         buffer += decoder.decode(value, { stream: true });
-    // //                         // Process complete lines from buffer
-    // //                         while (true) {
-    // //                             const lineEnd = buffer.indexOf('\n');
-    // //                             if (lineEnd === -1) break;
-    // //                             const line = buffer.slice(0, lineEnd).trim();
-    // //                             buffer = buffer.slice(lineEnd + 1);
-    // //                             if (line.startsWith('data: ')) {
-    // //                                 const data = line.slice(6);
-    // //                                 if (data === '[DONE]') break;
-    // //                                 try {
-    // //                                     const parsed = JSON.parse(data);
-    // //                                     const content =
-    // //                                         parsed.choices[0].delta.content;
-    // //                                     if (content) {
-    // //                                         // console.log('content:', content);
-    // //                                         results += content;
-    // //                                     }
-    // //                                 } catch (e) {
-    // //                                     // Ignore invalid JSON
-    // //                                 }
-    // //                             }
-    // //                         }
-    // //                     }
-    // //                 } finally {
-    // //                     reader.cancel();
-    // //                 }
-
-    // //                 console.log(results);
-
-    // //                 // if (!jsonStr) {
-    // //                 //     throw new Error(`No response from LLM for file ${i + 1}`);
-    // //                 // }
-
-    // //                 // const jsonResponse = JSON.parse(jsonStr);
-    // //                 // const fileData = jsonResponse.data || [];
-    // //                 // parsedData.push(fileData);
-    // //                 // this.logger.log(
-    // //                 //     `Parsed vote data for file ${i + 1}: ${fileData.length} records`,
-    // //                 // );
-    // //                 // this.logger.log(
-    // //                 //     `Tokens used for file ${i + 1}: prompt: ${completion.usage?.prompt_tokens || 0}, completion: ${completion.usage?.completion_tokens || 0}, total: ${completion.usage?.total_tokens || 0}`,
-    // //                 // );
-    // //             } catch (error) {
-    // //                 this.logger.error(
-    // //                     `Failed to parse vote file ${i + 1} with LLM:`,
-    // //                     error,
-    // //                 );
-    // //                 parsedData.push([]); // Empty for this file
-    // //             }
-    // //         }
-
-    // //         // Save to database
-    // //         const savedIds: string[] = [];
-
-    // //         for (let i = 0; i < parsedData.length; i++) {
-    // //             const fileData = parsedData[i];
-    // //             const jsonData = {
-    // //                 year: year,
-    // //                 data: fileData,
-    // //             };
-    // //             try {
-    // //                 const historyData = await this.prisma.historyData.create({
-    // //                     data: {
-    // //                         json: jsonData,
-    // //                     },
-    // //                 });
-    // //                 savedIds.push(historyData.id);
-    // //                 this.logger.log(
-    // //                     `Saved vote data for file ${i + 1} to HistoryData ID: ${historyData.id}`,
-    // //                 );
-    // //             } catch (error) {
-    // //                 this.logger.error(
-    // //                     `Failed to save vote data for file ${i + 1} to database:`,
-    // //                     error,
-    // //                 );
-    // //                 // Continue with next file
-    // //             }
-    // //         }
-
-    // //         return { savedIds };
-    //     }
-
     async countVotes(
         year: number,
         position: string,
@@ -552,124 +369,6 @@ export class LlmService {
         return voteResults;
     }
 
-    private parseBarangayPrecincts(
-        precinctText: string,
-    ): Array<{ barangay: string; precincts: string[] }> {
-        const lines = precinctText.split('\n');
-        const barangayPrecinctMap = new Map<string, Set<string>>();
-        let currentBarangay: string | null = null;
-
-        const skipLines = (line: string) => {
-            const trimmed = line.trim();
-            if (!trimmed) return true;
-            if (
-                trimmed.includes('Date:') ||
-                trimmed.includes('Page') ||
-                trimmed.includes('HASH:') ||
-                trimmed.includes('SUBTOTAL') ||
-                trimmed.includes('Election Officer') ||
-                trimmed.match(/^\d+,\d+$/) || // Voter counts like 1980
-                trimmed.includes('SCHOOL') ||
-                trimmed.includes('CENTER')
-            ) {
-                // Voting center names
-                return true;
-            }
-            // Skip headers
-            if (
-                [
-                    'CITY / MUNICIPALITY',
-                    'PROVINCE',
-                    'Republic of the Philippines',
-                    'COMMISSION ON ELECTIONS',
-                    'P R O J E C T  O F  P R E C I N C T',
-                    'MAY 12, 2025',
-                    'BARANGAY',
-                    'NAME AND ADDRESS',
-                    'OF VOTING CENTER',
-                    'TOTAL NO. OF',
-                    'REGISTERED',
-                    'VOTERS',
-                    'CLUSTER/',
-                    'GROUP',
-                    'NUMBER',
-                    'CLUSTERED/',
-                    'GROUPED',
-                    'PRECINCT',
-                    'TOTAL NO.OF REG',
-                    'VOTERS AFTER',
-                    'CLUSTERING/',
-                    'GROUPING',
-                    'ESTABLISHED',
-                ].some((kw) => line.includes(kw))
-            ) {
-                return true;
-            }
-            return false;
-        };
-
-        const precinctRegex = /\b(00\d+[A-B]?)\b/g; // Matches 0001A, etc.
-
-        for (let idx = 0; idx < lines.length; idx++) {
-            const line = lines[idx];
-            if (skipLines(line)) {
-                // When we hit SUBTOTAL, reset barangay
-                if (line.includes('SUBTOTAL')) {
-                    currentBarangay = null;
-                }
-                continue;
-            }
-
-            const trimmed = line.trim();
-            // Detect barangay: Uppercase words, not numbers
-            if (
-                /^[A-Z][A-Z\s]+$/.test(trimmed) &&
-                trimmed.length > 2 &&
-                !/\d/.test(trimmed)
-            ) {
-                currentBarangay = trimmed;
-                if (!barangayPrecinctMap.has(currentBarangay)) {
-                    barangayPrecinctMap.set(currentBarangay, new Set());
-                }
-                continue;
-            }
-
-            // If we have current barangay, extract precincts from this and next few lines (clusters span lines)
-            if (currentBarangay) {
-                let match;
-                precinctRegex.lastIndex = 0;
-                while ((match = precinctRegex.exec(line)) !== null) {
-                    const precinct = match[1];
-                    barangayPrecinctMap.get(currentBarangay)!.add(precinct);
-                }
-                // Check next lines for continued cluster lists (they often span 2-3 lines)
-                for (let j = 1; j <= 3 && idx + j < lines.length; j++) {
-                    const nextLine = lines[idx + j];
-                    if (skipLines(nextLine) || nextLine.trim().match(/^\d+$/))
-                        break; // Stop at voter count or skip
-                    precinctRegex.lastIndex = 0;
-                    while ((match = precinctRegex.exec(nextLine)) !== null) {
-                        const precinct = match[1];
-                        barangayPrecinctMap.get(currentBarangay)!.add(precinct);
-                    }
-                }
-            }
-        }
-
-        const result: Array<{ barangay: string; precincts: string[] }> = [];
-        for (const [barangay, precinctSet] of barangayPrecinctMap) {
-            result.push({
-                barangay,
-                precincts: Array.from(precinctSet).sort(),
-            });
-        }
-
-        this.logger.log(
-            `Parsed ${result.length} barangays with total ${result.reduce((sum, b) => sum + b.precincts.length, 0)} precincts`,
-        );
-        return result.sort((a, b) => a.barangay.localeCompare(b.barangay));
-    }
-
     private parseElectionPrecincts(text: string): Record<string, string[]> {
         // Known barangays from the document (hardcoded for accuracy to avoid detection issues)
         const knownBarangays = new Set([
@@ -883,57 +582,224 @@ export class LlmService {
         });
 
         const facebookData = facebookPosts.map((post) => ({
-            postId: post.id,
             content: post.content,
             likes: post.likes,
             shares: post.shares,
             commentsCount: post.commentsCount,
-            timestamp: post.timestamp,
             comments: post.facebookComments.map((comment) => ({
-                commentId: comment.id,
                 content: comment.content,
                 authorName: comment.authorName,
                 likes: comment.likes,
                 replies: comment.replies,
-                timestamp: comment.timestamp,
             })),
         }));
 
-        const systemPrompt = `You are an expert AI analyst for election campaign surveys and social media data. Analyze the provided surveys, responses, and Facebook posts/comments from the completed campaign phase. A phase can have multiple surveys with different topics/questions, and social media data provides additional public sentiment.
+        // Analyze Facebook data separately
+        const facebookAnalysis = await this.analyzeFacebookData(
+            facebookData,
+            campaignTitle,
+            completedPhase,
+            candidateName,
+            candidateParty,
+            candidatePosition,
+        );
 
-Important: Question IDs are random and not meaningful. Use the 'questionTitle' to identify question types and content. Analyze across all surveys and Facebook data, combining data for overall sentiments, issues, trends. For example:
-- Voter likelihood: titles about "likely to vote".
-- Issues: selections or text about priorities/concerns.
-- Qualities/support/feedback: open text responses for sentiment.
-- Sources: information sources.
-- Social Media: Analyze post engagement (likes, shares, comments) and comment sentiment/content for public opinion.
+        // Collect all survey responses
+        const allResponses: any[] = [];
+        phaseData.forEach((survey: any) => {
+            allResponses.push(...survey.responses);
+        });
+        const totalInputResponses = allResponses.length;
+        console.log(`Total input responses: ${totalInputResponses}`);
+
+        // Batch responses (e.g., 10 per batch)
+        const batchSize = 10;
+        const batches: any[][] = [];
+        for (let i = 0; i < allResponses.length; i += batchSize) {
+            batches.push(allResponses.slice(i, i + batchSize));
+        }
+
+        // Analyze each batch concurrently
+        const batchPromises = batches.map((batch, index) =>
+            this.analyzeSurveyBatch(
+                batch,
+                index + 1,
+                phaseData,
+                campaignTitle,
+                completedPhase,
+                facebookAnalysis.summary,
+                candidateName,
+                candidateParty,
+                candidatePosition,
+                previousReports,
+            ),
+        );
+        const batchResults = await Promise.all(batchPromises);
+
+        // Merge batch results
+        const mergedTopIssues: Map<string, any> = new Map();
+        let combinedSummary = facebookAnalysis.summary + '\n\n';
+        let totalConfidence = facebookAnalysis.confidence;
+
+        // Collect sentiments from AI
+        const sentimentMap: Map<string, string> = new Map();
+        batchResults.forEach((result, index) => {
+            combinedSummary += `Batch ${index + 1}: ${result.summary}\n`;
+            totalConfidence += result.confidence;
+
+            // Merge topIssues
+            result.topIssues.forEach((issue: any) => {
+                const key = issue.issue.toLowerCase();
+                if (mergedTopIssues.has(key)) {
+                    const existing = mergedTopIssues.get(key);
+                    existing.responses = [
+                        ...new Set([...existing.responses, ...issue.responses]),
+                    ];
+                    // Update sentiment/trend if needed (simple: keep first)
+                } else {
+                    mergedTopIssues.set(key, { ...issue });
+                }
+            });
+
+            // Collect sentiments by responseId
+            result.locationSentiment.forEach((loc: any) => {
+                loc.sentiments.forEach((s: any) => {
+                    sentimentMap.set(s.responseId, s.sentiment);
+                });
+            });
+        });
+
+        // Average confidence
+        const averageConfidence = Math.round(
+            totalConfidence / (batchResults.length + 1),
+        );
+
+        // Convert merged maps to arrays
+        const finalTopIssues = Array.from(mergedTopIssues.values()).map(
+            (issue) => ({
+                ...issue,
+                mentions: issue.responses.length,
+            }),
+        );
+
+        // Group by actual address from database
+        const locationGroups: Map<string, any[]> = new Map();
+        allResponses.forEach((response) => {
+            const location = response.address || 'Unknown';
+            if (!locationGroups.has(location)) {
+                locationGroups.set(location, []);
+            }
+            locationGroups.get(location)!.push({
+                responseId: response.id,
+                sentiment: sentimentMap.get(response.id) || 'neutral',
+            });
+        });
+
+        const finalLocationSentiment: any[] = Array.from(
+            locationGroups.entries(),
+        ).map(([location, sentiments]) => ({
+            location,
+            sentiments,
+        }));
+
+        // Count sentiments
+        let totalResponses = 0;
+        let positive = 0;
+        let negative = 0;
+        let neutral = 0;
+        finalLocationSentiment.forEach((loc) => {
+            loc.positive = 0;
+            loc.negative = 0;
+            loc.neutral = 0;
+            loc.sentiments.forEach((s) => {
+                totalResponses++;
+                switch (s.sentiment) {
+                    case 'positive':
+                        loc.positive++;
+                        positive++;
+                        break;
+                    case 'negative':
+                        loc.negative++;
+                        negative++;
+                        break;
+                    case 'neutral':
+                        loc.neutral++;
+                        neutral++;
+                        break;
+                }
+            });
+        });
+
+        // Generate final cohesive summary
+        const finalSummary = await this.generateFinalSummary(
+            facebookAnalysis.summary,
+            finalTopIssues,
+            finalLocationSentiment,
+            averageConfidence,
+            campaignTitle,
+            completedPhase,
+            candidateName,
+            candidateParty,
+            candidatePosition,
+            previousReports,
+        );
+
+        const finalResult = {
+            summary: finalSummary,
+            confidence: averageConfidence,
+            topIssues: finalTopIssues,
+            locationSentiment: finalLocationSentiment,
+            totalResponses,
+            positive,
+            negative,
+            neutral,
+        };
+
+        this.logger.log('Survey analysis completed successfully');
+        return finalResult;
+    }
+    private async analyzeFacebookData(
+        facebookData: any[],
+        campaignTitle: string,
+        completedPhase: string,
+        candidateName?: string,
+        candidateParty?: string,
+        candidatePosition?: string,
+    ) {
+        if (facebookData.length === 0) {
+            return {
+                summary: 'No Facebook data available for this phase.',
+                confidence: 50,
+                topIssues: [],
+                locationSentiment: [],
+            };
+        }
+
+        const systemPrompt = `You are an expert AI analyst for election campaign social media data. Analyze the provided Facebook posts and comments from the completed campaign phase for public sentiment, issues, and engagement.
 
 Key Analysis:
-- Sentiments: Classify each survey respondent's overall sentiment (positive/neutral/negative) towards the candidate/election, based on open responses across surveys. Also analyze Facebook comments for public sentiment trends. Do not aggregate totals; instead, provide the sentiment for each response ID and summarize comment sentiments.
-- Group by location: Extract from survey 'address' field, normalize to city/barangay (e.g., "Manila", "Barangay 1"). For each location, group the survey sentiments by response ID. Note any location mentions in Facebook comments.
-- Top Issues: Identify 3-5 key issues from all surveys and Facebook posts/comments (selections, open text, comment content). For each: name, array of survey response IDs that mentioned the issue, majority sentiment (Positive/Negative/Neutral based on the sentiments of those respondents), trend (up/down/flat based on frequency/urgency compared to previous report if provided). Include social media engagement metrics.
-- Performance: Infer trends from voter likelihood, sources, qualities across surveys, and social media engagement (likes, shares, comment volume). Estimate overall confidence score (0-100) for campaign success, factoring in both survey data and public social media sentiment.
-- Summary: Concise 200-300 word narrative for non-technical readers, highlighting qualitative findings from all surveys and social media data, focusing on sentiments, issues, and trends without quantitative metrics or participant counts, and recommendations. If previous report is provided, compare trends and changes.
+- Sentiments: Analyze comments for public sentiment trends (positive/neutral/negative) towards the candidate/election. Summarize overall sentiment.
+- Group by location: Note any location mentions in comments (e.g., barangay, city). Group sentiments by location if mentioned.
+- Top Issues: Identify 3-5 key issues from posts/comments (content, engagement). For each: name, engagement metrics (likes, shares, comments), majority sentiment, trend (up/down/flat).
+- Performance: Estimate confidence score (0-100) based on engagement and sentiment.
+- Summary: Concise 100-150 word narrative on public sentiment, issues, and trends.
 
 Input:
-- Surveys: Array of {title, form: [{id, title: questionTitle, type, options, required}], responses: [{id: responseId, name, address: location, data: [{questionId, questionTitle, value}]}]}
-- Facebook Data: Array of {postId, content, likes, shares, commentsCount, timestamp, comments: [{commentId, content, authorName, likes, replies, timestamp}]}
+- Facebook Data: Array of {content, likes, shares, commentsCount, comments: [{content, authorName, likes, replies}]}
 - Campaign: "${campaignTitle}"
 - Candidate Name: "${candidateName || 'N/A'}"
 - Party: "${candidateParty || 'N/A'}"
 - Position: "${candidatePosition || 'N/A'}"
 - Phase: "${completedPhase}"
-- Previous Report: ${previousReports.length > 0 ? JSON.stringify(previousReports, null, 2) : 'None (first phase)'}
 
-Output ONLY valid JSON, no other text. Structure matches frontend:
-
+Output ONLY valid JSON:
 {
     "summary": "Narrative summary...",
     "confidence": number (0-100),
     "topIssues": [
         {
             "issue": "string",
-            "responses": ["responseId1", "responseId2"],
+            "engagement": { "likes": number, "shares": number, "comments": number },
             "sentiment": "Positive" | "Negative" | "Neutral",
             "trend": "up" | "down" | "flat"
         }
@@ -943,109 +809,270 @@ Output ONLY valid JSON, no other text. Structure matches frontend:
             "location": "string",
             "sentiments": [
                 {
-                "responseId": "string",
-                "sentiment": "positive" | "neutral" | "negative"
+                    "sentiment": "positive" | "neutral" | "negative",
+                    "count": number
                 }
             ]
         }
     ]
 }`;
 
-        const userPrompt = `Campaign: ${campaignTitle}
-Candidate Name: ${candidateName || 'N/A'}
-Party: ${candidateParty || 'N/A'}
-Position: ${candidatePosition || 'N/A'}
-Completed Phase: ${completedPhase}
+        const userPrompt = `Facebook Data: ${JSON.stringify(facebookData, null, 2)}`;
 
-${previousReports.length > 0 ? `Previous Report: ${JSON.stringify(previousReports, null, 2)}` : ''}
-
-Phase Surveys Data: ${JSON.stringify(phaseData, null, 2)}
-
-Facebook Data: ${JSON.stringify(facebookData, null, 2)}`;
-
-        try {
-            console.log('Sending prompt to AI...');
-            const completion = await this.openai.chat.completions.create({
-                model: 'x-ai/grok-4-fast:free',
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: userPrompt },
-                ],
-                response_format: { type: 'json_object' },
-                temperature: 0.3,
-                max_tokens: 10000,
-            });
-
-            if (completion.usage) {
-                // log tokens
-                console.log('Prompt tokens:', completion.usage.prompt_tokens);
-                console.log(
-                    'Completion tokens:',
-                    completion.usage.completion_tokens,
+        let parsed;
+        let retries = 0;
+        const maxRetries = 3;
+        while (retries < maxRetries) {
+            try {
+                this.logger.log(
+                    `Starting Facebook analysis LLM call for phase ${completedPhase}${retries > 0 ? ` (retry ${retries})` : ''}`,
                 );
-                console.log('Total tokens:', completion.usage.total_tokens);
-            }
-            const content = completion.choices[0].message.content;
-            if (!content) throw new Error('No content in LLM response');
+                const completion = await this.openai.chat.completions.create({
+                    model: 'x-ai/grok-4-fast:free',
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userPrompt },
+                    ],
+                    response_format: { type: 'json_object' },
+                    temperature: 0.3,
+                });
 
-            const parsed = JSON.parse(content);
-            console.log('Counting mentions and sentiments by location...');
-            const { topIssues, locationSentiment } = parsed;
-
-            topIssues.forEach(
-                (issue) => (issue.mentions = issue.responses?.length || 0),
-            );
-
-            // parsed.topIssues = topIssues;
-            let totalResponses = 0;
-            let positive = 0;
-            let negative = 0;
-            let neutral = 0;
-
-            locationSentiment.forEach((loc) => {
-                loc.positive = 0;
-                loc.negative = 0;
-                loc.neutral = 0;
-                for (const response of loc.sentiments) {
-                    totalResponses++;
-                    switch (response.sentiment) {
-                        case 'positive':
-                            loc.positive++;
-                            positive++;
-                            break;
-                        case 'negative':
-                            loc.negative++;
-                            negative++;
-                            break;
-                        case 'neutral':
-                            loc.neutral++;
-                            neutral++;
-                            break;
-                        default:
-                            break;
+                if (completion.usage) {
+                    this.logger.log(
+                        `Facebook LLM tokens: prompt ${completion.usage.prompt_tokens}, completion ${completion.usage.completion_tokens}, total ${completion.usage.total_tokens}`,
+                    );
+                }
+                const content = completion.choices[0].message.content;
+                if (!content)
+                    throw new Error('No content in Facebook LLM response');
+                parsed = JSON.parse(content);
+                this.logger.log(
+                    'Facebook analysis LLM call completed successfully',
+                );
+                break;
+            } catch (error) {
+                if (
+                    error instanceof SyntaxError &&
+                    error.message.includes('Unexpected end of JSON input')
+                ) {
+                    retries++;
+                    if (retries < maxRetries) {
+                        this.logger.warn(
+                            `JSON parse failed, retrying (${retries}/${maxRetries})`,
+                        );
+                        continue;
                     }
                 }
-            });
-
-            // parsed.locationSentiment = locationSentiment;
-
-            const countedResponse = {
-                ...parsed,
-                topIssues,
-                locationSentiment,
-                totalResponses,
-                positive,
-                negative,
-                neutral,
-            };
-            this.logger.log('Survey analysis completed successfully');
-            return countedResponse;
-        } catch (error) {
-            this.logger.error('Error in analyzeSurveyResponses:', error);
-            throw error;
+                this.logger.error('Error in analyzeFacebookData:', error);
+                throw error;
+            }
         }
+        return parsed;
     }
 
+    private async analyzeSurveyBatch(
+        batchResponses: any[],
+        batchIndex: number,
+        phaseData: any,
+        campaignTitle: string,
+        completedPhase: string,
+        facebookSummary?: string,
+        candidateName?: string,
+        candidateParty?: string,
+        candidatePosition?: string,
+        previousReports?: any,
+    ) {
+        const systemPrompt = `You are an expert AI analyst for election campaign surveys. Analyze the provided survey responses from the completed campaign phase. Combine with Facebook insights if provided.
+
+Important: Question IDs are random. Use 'questionTitle' to identify types. Analyze for sentiments, issues, trends.
+
+Key Analysis:
+- Sentiments: Classify each respondent's overall sentiment (positive/neutral/negative) based on open responses. Provide for each response ID.
+- Group by location: Extract from 'address' field, normalize to city/barangay (e.g., "Bustos, Bulacan" -> "Bustos"). Examples: "Barangay Poblacion, Bustos" -> "Poblacion"; "123 Main St, Barangay 1, Manila" -> "Barangay 1, Manila". If empty/null/cannot normalize, use "Unknown". Ensure ALL responses are included.
+- Top Issues: Identify 3-5 key issues from responses. For each: name, response IDs that mentioned it, majority sentiment, trend (up/down/flat vs previous if provided).
+- Performance: Infer confidence (0-100) from likelihood, sources, qualities.
+- Summary: Concise 150-250 word narrative on sentiments, issues, trends, recommendations. Compare to previous if provided. Incorporate Facebook summary if given.
+
+Input:
+- Surveys: Array of {title, form: [{id, title: questionTitle, type, options, required}], responses: batch subset}
+- Campaign: "${campaignTitle}"
+- Candidate Name: "${candidateName || 'N/A'}"
+- Party: "${candidateParty || 'N/A'}"
+- Position: "${candidatePosition || 'N/A'}"
+- Phase: "${completedPhase}"
+- Facebook Summary: "${facebookSummary || 'None'}"
+- Previous Report: ${previousReports?.length > 0 ? JSON.stringify(previousReports, null, 2) : 'None'}
+
+Output ONLY valid JSON:
+{
+    "summary": "Narrative summary...",
+    "confidence": number (0-100),
+    "topIssues": [
+        {
+            "issue": "string",
+            "responses": ["responseId1"],
+            "sentiment": "Positive" | "Negative" | "Neutral",
+            "trend": "up" | "down" | "flat"
+        }
+    ],
+    "locationSentiment": [
+        {
+            "location": "string",
+            "sentiments": [
+                {
+                    "responseId": "string",
+                    "sentiment": "positive" | "neutral" | "negative"
+                }
+            ]
+        }
+    ]
+}`;
+
+        const userPrompt = `Phase Surveys Data: ${JSON.stringify(phaseData, null, 2)}
+Batch Responses: ${JSON.stringify(batchResponses, null, 2)}`;
+
+        let parsed;
+        let retries = 0;
+        const maxRetries = 3;
+        while (retries < maxRetries) {
+            try {
+                this.logger.log(
+                    `Batch ${batchIndex}: Starting survey batch LLM call for ${batchResponses.length} responses${retries > 0 ? ` (retry ${retries})` : ''}`,
+                );
+                const completion = await this.openai.chat.completions.create({
+                    model: 'x-ai/grok-4-fast:free',
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userPrompt },
+                    ],
+                    response_format: { type: 'json_object' },
+                    temperature: 0.3,
+                });
+
+                if (completion.usage) {
+                    this.logger.log(
+                        `Batch ${batchIndex}: Batch LLM tokens: prompt ${completion.usage.prompt_tokens}, completion ${completion.usage.completion_tokens}, total ${completion.usage.total_tokens}`,
+                    );
+                }
+                const content = completion.choices[0].message.content;
+                if (!content)
+                    throw new Error('No content in batch LLM response');
+                parsed = JSON.parse(content);
+                this.logger.log(
+                    `Batch ${batchIndex}: Survey batch LLM call completed successfully`,
+                );
+                break;
+            } catch (error) {
+                if (
+                    error instanceof SyntaxError &&
+                    error.message.includes('Unexpected end of JSON input')
+                ) {
+                    retries++;
+                    if (retries < maxRetries) {
+                        this.logger.warn(
+                            `JSON parse failed, retrying (${retries}/${maxRetries})`,
+                        );
+                        continue;
+                    }
+                }
+                this.logger.error(
+                    `Error in Batch ${batchIndex} analyzeSurveyBatch:`,
+                    error,
+                );
+                throw error;
+            }
+        }
+        return parsed;
+    }
+    private async generateFinalSummary(
+        facebookSummary: string,
+        mergedTopIssues: any[],
+        mergedLocationSentiment: any[],
+        averageConfidence: number,
+        campaignTitle: string,
+        completedPhase: string,
+        candidateName?: string,
+        candidateParty?: string,
+        candidatePosition?: string,
+        previousReports?: any,
+    ) {
+        const systemPrompt = `You are an expert AI analyst synthesizing election campaign reports. Given Facebook analysis and merged survey data, create a cohesive final summary narrative.
+
+Key Requirements:
+- Combine Facebook public sentiment with survey sentiments.
+- Highlight key issues, location trends, and overall confidence.
+- Compare to previous reports if provided.
+- Provide 200-300 word narrative for non-technical readers, focusing on qualitative insights, sentiments, issues, trends, and recommendations.
+
+Input:
+- Facebook Summary: "${facebookSummary}"
+- Merged Top Issues: ${JSON.stringify(mergedTopIssues)}
+- Merged Location Sentiment: ${JSON.stringify(mergedLocationSentiment)}
+- Average Confidence: ${averageConfidence}
+- Campaign: "${campaignTitle}"
+- Candidate Name: "${candidateName || 'N/A'}"
+- Party: "${candidateParty || 'N/A'}"
+- Position: "${candidatePosition || 'N/A'}"
+- Phase: "${completedPhase}"
+- Previous Report: ${previousReports?.length > 0 ? JSON.stringify(previousReports, null, 2) : 'None'}
+
+Output ONLY valid JSON:
+{
+    "finalSummary": "Cohesive narrative summary..."
+}`;
+
+        const userPrompt = `Synthesize the above data into a final report summary.`;
+
+        let parsed;
+        let retries = 0;
+        const maxRetries = 3;
+        while (retries < maxRetries) {
+            try {
+                this.logger.log(
+                    `Starting final summary LLM call${retries > 0 ? ` (retry ${retries})` : ''}`,
+                );
+                const completion = await this.openai.chat.completions.create({
+                    model: 'x-ai/grok-4-fast:free',
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userPrompt },
+                    ],
+                    response_format: { type: 'json_object' },
+                    temperature: 0.3,
+                });
+
+                if (completion.usage) {
+                    this.logger.log(
+                        `Final summary LLM tokens: prompt ${completion.usage.prompt_tokens}, completion ${completion.usage.completion_tokens}, total ${completion.usage.total_tokens}`,
+                    );
+                }
+                const content = completion.choices[0].message.content;
+                if (!content)
+                    throw new Error('No content in final summary LLM response');
+                parsed = JSON.parse(content);
+                this.logger.log(
+                    'Final summary LLM call completed successfully',
+                );
+                break;
+            } catch (error) {
+                if (
+                    error instanceof SyntaxError &&
+                    error.message.includes('Unexpected end of JSON input')
+                ) {
+                    retries++;
+                    if (retries < maxRetries) {
+                        this.logger.warn(
+                            `JSON parse failed, retrying (${retries}/${maxRetries})`,
+                        );
+                        continue;
+                    }
+                }
+                this.logger.error('Error in generateFinalSummary:', error);
+                throw error;
+            }
+        }
+        return parsed.finalSummary;
+    }
     async getHistory(position: string, year: string) {
         return this.prisma.historyData.findMany({
             where: { position, year },
