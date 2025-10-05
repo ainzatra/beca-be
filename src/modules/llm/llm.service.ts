@@ -778,7 +778,11 @@ export class LlmService {
         const systemPrompt = `You are an expert AI analyst for election campaign social media data. Analyze the provided Facebook posts and comments from the completed campaign phase for public sentiment, issues, and engagement.
 
 Key Analysis:
-- Sentiments: Analyze comments for public sentiment trends (positive/neutral/negative) towards the candidate/election. Summarize overall sentiment.
+- Sentiments: Analyze comments for public sentiment trends (positive/neutral/negative) towards the candidate/election.
+  * POSITIVE: Comments that show support, praise, agreement, enthusiasm for the candidate, or express intent to vote for them. Examples: "Great candidate!", "I'll vote for you", "You have my support", "Excellent platform", etc.
+  * NEGATIVE: Comments that show opposition, criticism, disagreement, or express intent to vote against the candidate. Examples: "Bad choice", "I won't vote for you", "Terrible policies", "Corrupt candidate", etc.
+  * NEUTRAL: Factual statements, questions, or comments that don't clearly express support or opposition.
+  Be more decisive in classification - avoid defaulting to neutral when sentiment is clear.
 - Group by location: Note any location mentions in comments (e.g., barangay, city). Group sentiments by location if mentioned.
 - Top Issues: Identify 3-5 key issues from posts/comments (content, engagement). For each: name, engagement metrics (likes, shares, comments), majority sentiment, trend (up/down/flat).
 - Performance: Estimate confidence score (0-100) based on engagement and sentiment.
@@ -888,6 +892,10 @@ Important: Question IDs are random. Use 'questionTitle' to identify types. Analy
 
 Key Analysis:
 - Sentiments: Classify each respondent's overall sentiment (positive/neutral/negative) based on open responses. Provide for each response ID.
+  * POSITIVE: Responses that show support, praise, agreement, enthusiasm for the candidate, or express intent to vote for them. Look for phrases like: "I support", "good candidate", "will vote for", "excellent platform", "qualified", "trustworthy", etc.
+  * NEGATIVE: Responses that show opposition, criticism, disagreement, or express intent to vote against the candidate. Look for phrases like: "I don't support", "bad candidate", "won't vote for", "poor platform", "unqualified", "corrupt", etc.
+  * NEUTRAL: Factual statements, questions, or responses that don't clearly express support or opposition.
+  Be more decisive in classification - avoid defaulting to neutral when sentiment is clear. Look for emotional indicators and explicit expressions of support/opposition.
 - Group by location: Extract from 'address' field, normalize to city/barangay (e.g., "Bustos, Bulacan" -> "Bustos"). Examples: "Barangay Poblacion, Bustos" -> "Poblacion"; "123 Main St, Barangay 1, Manila" -> "Barangay 1, Manila". If empty/null/cannot normalize, use "Unknown". Ensure ALL responses are included.
 - Top Issues: Identify 3-5 key issues from responses. For each: name, response IDs that mentioned it, majority sentiment, trend (up/down/flat vs previous if provided).
 - Performance: Infer confidence (0-100) from likelihood, sources, qualities.
@@ -1003,6 +1011,10 @@ Key Requirements:
 - Highlight key issues, location trends, and overall confidence.
 - Compare to previous reports if provided.
 - Provide 200-300 word narrative for non-technical readers, focusing on qualitative insights, sentiments, issues, trends, and recommendations.
+- When discussing sentiment, clearly distinguish between:
+  * Positive sentiment: Support, praise, enthusiasm for the candidate, expressions of voting intent
+  * Negative sentiment: Opposition, criticism, expressions of voting against the candidate
+  * Neutral sentiment: Factual statements without clear support or opposition
 
 Input:
 - Facebook Summary: "${facebookSummary}"
