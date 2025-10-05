@@ -27,10 +27,10 @@ export class FacebookService {
         this.logger.log(
             `Phase changed for campaign ${payload.campaignId} to ${payload.completedPhase}`,
         );
-        // await this.scrapeFacebookData(
-        //     payload.campaignId,
-        //     payload.completedPhase,
-        // );
+        await this.scrapeFacebookData(
+            payload.campaignId,
+            payload.completedPhase,
+        );
 
         await this.campaignService.triggerPhaseAnalysis(
             payload.campaignId,
@@ -39,6 +39,9 @@ export class FacebookService {
     }
 
     async getPostsAndComments(campaignId: string, phase: CampaignPhase) {
+        console.log(
+            `Fetching posts and comments for campaign ${campaignId} phase ${phase}`,
+        );
         return this.prisma.facebookPost.findMany({
             where: {
                 campaignId,

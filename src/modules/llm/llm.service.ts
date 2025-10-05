@@ -828,7 +828,7 @@ Output ONLY valid JSON:
                     `Starting Facebook analysis LLM call for phase ${completedPhase}${retries > 0 ? ` (retry ${retries})` : ''}`,
                 );
                 const completion = await this.openai.chat.completions.create({
-                    model: 'x-ai/grok-4-fast:free',
+                    model: 'x-ai/grok-4-fast',
                     messages: [
                         { role: 'system', content: systemPrompt },
                         { role: 'user', content: userPrompt },
@@ -940,7 +940,7 @@ Batch Responses: ${JSON.stringify(batchResponses, null, 2)}`;
                     `Batch ${batchIndex}: Starting survey batch LLM call for ${batchResponses.length} responses${retries > 0 ? ` (retry ${retries})` : ''}`,
                 );
                 const completion = await this.openai.chat.completions.create({
-                    model: 'x-ai/grok-4-fast:free',
+                    model: 'x-ai/grok-4-fast',
                     messages: [
                         { role: 'system', content: systemPrompt },
                         { role: 'user', content: userPrompt },
@@ -1032,7 +1032,7 @@ Output ONLY valid JSON:
                     `Starting final summary LLM call${retries > 0 ? ` (retry ${retries})` : ''}`,
                 );
                 const completion = await this.openai.chat.completions.create({
-                    model: 'x-ai/grok-4-fast:free',
+                    model: 'x-ai/grok-4-fast',
                     messages: [
                         { role: 'system', content: systemPrompt },
                         { role: 'user', content: userPrompt },
