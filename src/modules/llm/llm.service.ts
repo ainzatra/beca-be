@@ -570,6 +570,25 @@ export class LlmService {
         candidateParty?: string,
         candidatePosition?: string,
     ) {
+        // Fetch historical voting data for strategic analysis
+        console.log(
+            `[HISTORICAL DATA] Fetching historical data for position: "${candidatePosition}", candidate: "${candidateName}", party: "${candidateParty}"`,
+        );
+        const historicalVotingData = await this.getHistoricalVotingData(
+            candidatePosition || '',
+            candidateName,
+            candidateParty,
+        );
+        console.log(
+            `[HISTORICAL DATA] Found ${historicalVotingData.allHistoricalData.length} years of historical data`,
+        );
+        console.log(
+            `[HISTORICAL DATA] Candidate found in history: ${historicalVotingData.candidateHistoricalData.length > 0 ? 'YES' : 'NO'}`,
+        );
+        console.log(
+            `[HISTORICAL DATA] Party performance data available: ${Object.keys(historicalVotingData.partyPerformancePatterns).length > 0 ? 'YES' : 'NO'}`,
+        );
+
         // Fetch Facebook data for the campaign and phase
         const facebookPosts = await this.prisma.facebookPost.findMany({
             where: {
@@ -742,6 +761,7 @@ export class LlmService {
             candidateParty,
             candidatePosition,
             previousReports,
+            historicalVotingData,
         );
 
         const finalResult = {
@@ -753,9 +773,36 @@ export class LlmService {
             positive,
             negative,
             neutral,
+            historicalContext: {
+                hasHistoricalData:
+                    historicalVotingData.allHistoricalData.length > 0,
+                candidateInHistory:
+                    historicalVotingData.candidateHistoricalData.length > 0,
+                partyDataAvailable:
+                    Object.keys(historicalVotingData.partyPerformancePatterns)
+                        .length > 0,
+                yearsAvailable: historicalVotingData.allHistoricalData.map(
+                    (d) => d.year,
+                ),
+            },
         };
 
         this.logger.log('Survey analysis completed successfully');
+        console.log(
+            `[FINAL RESULT] Analysis complete with historical context integration`,
+        );
+        console.log(
+            `[FINAL RESULT] Historical data available: ${finalResult.historicalContext.hasHistoricalData}`,
+        );
+        console.log(
+            `[FINAL RESULT] Candidate in history: ${finalResult.historicalContext.candidateInHistory}`,
+        );
+        console.log(
+            `[FINAL RESULT] Party data available: ${finalResult.historicalContext.partyDataAvailable}`,
+        );
+        console.log(
+            `[FINAL RESULT] Years in analysis: [${finalResult.historicalContext.yearsAvailable.join(', ')}]`,
+        );
         return finalResult;
     }
     private async analyzeFacebookData(
@@ -1003,14 +1050,20 @@ Batch Responses: ${JSON.stringify(batchResponses, null, 2)}`;
         candidateParty?: string,
         candidatePosition?: string,
         previousReports?: any,
+        historicalVotingData?: any,
     ) {
-        const systemPrompt = `You are an expert AI analyst synthesizing election campaign reports. Given Facebook analysis and merged survey data, create a cohesive final summary narrative.
+        const systemPrompt = `You are an expert AI analyst synthesizing election campaign reports with historical voting data. Given Facebook analysis, merged survey data, and historical voting patterns, create a cohesive final summary with strategic recommendations.
 
 Key Requirements:
 - Combine Facebook public sentiment with survey sentiments.
 - Highlight key issues, location trends, and overall confidence.
 - Compare to previous reports if provided.
-- Provide 200-300 word narrative for non-technical readers, focusing on qualitative insights, sentiments, issues, trends, and recommendations.
+- **STRATEGIC HISTORICAL ANALYSIS**: Compare current survey sentiment with historical voting patterns to identify:
+  * HIGH PRIORITY AREAS: Current sentiment is positive but historically your party/candidate underperformed
+  * DEFENSE AREAS: Historically strong performance but current sentiment is declining
+  * GROWTH OPPORTUNITIES: Neutral sentiment but historically competitive areas
+  * LOW PRIORITY AREAS: Both historical performance and current sentiment are weak
+- Provide 250-350 word narrative for non-technical readers, focusing on qualitative insights, sentiments, issues, trends, and **STRATEGIC CAMPAIGN RECOMMENDATIONS** based on historical comparison.
 - When discussing sentiment, clearly distinguish between:
   * Positive sentiment: Support, praise, enthusiasm for the candidate, expressions of voting intent
   * Negative sentiment: Opposition, criticism, expressions of voting against the candidate
@@ -1026,11 +1079,12 @@ Input:
 - Party: "${candidateParty || 'N/A'}"
 - Position: "${candidatePosition || 'N/A'}"
 - Phase: "${completedPhase}"
+- Historical Voting Data: ${JSON.stringify(historicalVotingData, null, 2)}
 - Previous Report: ${previousReports?.length > 0 ? JSON.stringify(previousReports, null, 2) : 'None'}
 
 Output ONLY valid JSON:
 {
-    "finalSummary": "Cohesive narrative summary..."
+    "finalSummary": "Cohesive narrative summary with strategic recommendations based on historical comparison..."
 }`;
 
         const userPrompt = `Synthesize the above data into a final report summary.`;
@@ -1096,5 +1150,196 @@ Output ONLY valid JSON:
         return this.prisma.historyData.delete({
             where: { id, year, position },
         });
+    }
+
+    async getHistoricalVotingData(
+        position: string,
+        candidateName?: string,
+        candidateParty?: string,
+    ) {
+        // Get all historical data for the position
+        const allHistoryData = await this.prisma.historyData.findMany({
+            where: { position },
+            orderBy: { year: 'desc' },
+        });
+
+        if (allHistoryData.length === 0) {
+            console.log(
+                `[HISTORICAL DATA] No historical data found for position: "${position}"`,
+            );
+            return {
+                allHistoricalData: [],
+                candidateHistoricalData: [],
+                candidateHistoricalPerformance: {},
+                partyPerformancePatterns: {},
+                strategicAnalysis: {
+                    highPriorityAreas: [],
+                    moderatePriorityAreas: [],
+                    lowPriorityAreas: [],
+                    defenseAreas: [],
+                },
+            };
+        }
+
+        console.log(
+            `[HISTORICAL DATA] Processing ${allHistoryData.length} historical records for position: "${position}"`,
+        );
+
+        // Helper function to normalize candidate names for comparison
+        const normalizeHistoricalCandidateName = (
+            historicalName: string,
+        ): string => {
+            // Remove party abbreviations in parentheses
+            let name = historicalName
+                .replace(/\s*\([^)]*\)\s*$/g, '')
+                .trim()
+                .toLowerCase();
+            return name;
+        };
+
+        // Helper function to normalize current candidate name for comparison
+        const normalizeCurrentCandidateName = (name: string): string => {
+            // Convert "First Last" to "last, first" format for comparison
+            const parts = name.trim().toLowerCase().split(' ');
+            if (parts.length >= 2) {
+                const firstName = parts[0];
+                const lastName = parts.slice(1).join(' ');
+                return `${lastName}, ${firstName}`;
+            }
+            return name.toLowerCase();
+        };
+
+        // Process historical data to extract voting patterns
+        const processedData = allHistoryData.map((data) => {
+            const votes = data.json as any;
+            return {
+                year: data.year,
+                votes: votes.votes || {},
+                totalClusters: votes.total_clusters || 0,
+            };
+        });
+
+        // Check if candidate appears in historical data
+        let candidateHistoricalData: any[] = [];
+        if (candidateName) {
+            const normalizedCurrentName =
+                normalizeCurrentCandidateName(candidateName);
+            candidateHistoricalData = processedData.filter((data) => {
+                return Object.values(data.votes).some((barangayVotes: any) => {
+                    return Object.keys(barangayVotes).some(
+                        (historicalCandidateKey) => {
+                            const normalizedHistoricalName =
+                                normalizeHistoricalCandidateName(
+                                    historicalCandidateKey,
+                                );
+                            return (
+                                normalizedHistoricalName ===
+                                    normalizedCurrentName ||
+                                normalizedHistoricalName.includes(
+                                    normalizedCurrentName,
+                                ) ||
+                                normalizedCurrentName.includes(
+                                    normalizedHistoricalName,
+                                )
+                            );
+                        },
+                    );
+                });
+            });
+        }
+
+        // Extract candidate's historical performance if available
+        let candidateHistoricalPerformance: Record<string, any> = {};
+        if (candidateName && candidateHistoricalData.length > 0) {
+            const normalizedCurrentName =
+                normalizeCurrentCandidateName(candidateName);
+            candidateHistoricalPerformance = candidateHistoricalData.reduce(
+                (acc, data) => {
+                    acc[data.year] = {};
+                    Object.entries(data.votes).forEach(
+                        ([barangay, votes]: [string, any]) => {
+                            Object.entries(votes).forEach(
+                                ([historicalCandidate, voteCount]) => {
+                                    const normalizedHistoricalName =
+                                        normalizeHistoricalCandidateName(
+                                            historicalCandidate,
+                                        );
+                                    if (
+                                        normalizedHistoricalName ===
+                                            normalizedCurrentName ||
+                                        normalizedHistoricalName.includes(
+                                            normalizedCurrentName,
+                                        ) ||
+                                        normalizedCurrentName.includes(
+                                            normalizedHistoricalName,
+                                        )
+                                    ) {
+                                        acc[data.year][barangay] = voteCount;
+                                    }
+                                },
+                            );
+                        },
+                    );
+                    return acc;
+                },
+                {} as Record<string, any>,
+            );
+        }
+
+        // Extract party performance patterns if party is provided
+        let partyPerformancePatterns: Record<string, any> = {};
+        if (candidateParty) {
+            const partyAbbreviation = candidateParty.toLowerCase();
+            partyPerformancePatterns = processedData.reduce(
+                (acc, data) => {
+                    acc[data.year] = {};
+                    Object.entries(data.votes).forEach(
+                        ([barangay, votes]: [string, any]) => {
+                            let partyTotalVotes = 0;
+                            let totalVotes = 0;
+
+                            Object.entries(votes).forEach(
+                                ([candidate, voteCount]: [string, number]) => {
+                                    totalVotes += voteCount;
+                                    if (
+                                        candidate
+                                            .toLowerCase()
+                                            .includes(partyAbbreviation)
+                                    ) {
+                                        partyTotalVotes += voteCount;
+                                    }
+                                },
+                            );
+
+                            if (totalVotes > 0) {
+                                acc[data.year][barangay] = {
+                                    partyVotes: partyTotalVotes,
+                                    totalVotes: totalVotes,
+                                    partyPercentage: (
+                                        (partyTotalVotes / totalVotes) *
+                                        100
+                                    ).toFixed(2),
+                                };
+                            }
+                        },
+                    );
+                    return acc;
+                },
+                {} as Record<string, any>,
+            );
+        }
+
+        return {
+            allHistoricalData: processedData,
+            candidateHistoricalData,
+            candidateHistoricalPerformance,
+            partyPerformancePatterns,
+            strategicAnalysis: {
+                highPriorityAreas: [],
+                moderatePriorityAreas: [],
+                lowPriorityAreas: [],
+                defenseAreas: [],
+            },
+        };
     }
 }
