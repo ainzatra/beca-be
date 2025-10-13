@@ -71,7 +71,7 @@ export class FacebookService {
             const postsInput = {
                 resultsLimit: 38, // Based on cost calculatio
                 captionText: true,
-                onlyPostsNewerThan: '30 days',
+                // onlyPostsNewerThan: '30 days', // Remove for now because of added cost
                 startUrls: [{ url: campaign.fbUrl, method: 'GET' }],
             };
 
@@ -90,28 +90,13 @@ export class FacebookService {
             this.logger.log(
                 `Scraped ${postsDataset.items.length} posts with a total of ${totalComments} comments for campaign ${campaignId}`,
             );
+
+            // Use only one apify call instead by putting all post urls in the startUrls
             for (const post of postsDataset.items) {
                 this.logger.log(`Saving post: ${post.url}`);
                 // Save post to database
-                const savedPost = await this.prisma.facebookPost.upsert({
-                    where: {
-                        campaignId_phase_url: {
-                            campaignId,
-                            phase,
-                            url: post.url as string,
-                        },
-                    },
-                    update: {
-                        campaignId,
-                        phase,
-                        content: post.text as string,
-                        url: post.url as string,
-                        timestamp: new Date((post.timestamp as number) * 1000),
-                        likes: (post.likes as number) || 0,
-                        shares: (post.shares as number) || 0,
-                        commentsCount: (post.comments as number) || 0,
-                    },
-                    create: {
+                const savedPost = await this.prisma.facebookPost.create({
+                    data: {
                         campaignId,
                         phase,
                         content: post.text as string,
@@ -122,58 +107,46 @@ export class FacebookService {
                         commentsCount: (post.comments as number) || 0,
                     },
                 });
+            }
 
-                try {
-                    this.logger.log(`Scraping comments for post: ${post.url}`);
-                    // Scrape comments for this post
-                    const commentsInput = {
-                        startUrls: [{ url: post.url, method: 'GET' }],
-                        resultsLimit: 50, // Up to 50 comments per post
+            try {
+                this.logger.log(`Scraping comments for all posts...`);
+                // Scrape comments for this post
+                const postUrls = postsDataset.items.map((post) => {
+                    return {
+                        url: post.url,
                     };
+                });
+                const commentsInput = {
+                    startUrls: postUrls,
+                    resultsLimit: 50, // Up to 50 comments per post
+                };
 
-                    const commentRun = await this.apifyClient
-                        .actor('apify/facebook-comments-scraper')
-                        .call(commentsInput);
-                    const commentsDataset = await this.apifyClient
-                        .dataset(commentRun.defaultDatasetId)
-                        .listItems();
-
-                    for (const comment of commentsDataset.items) {
-                        await this.prisma.facebookComment.upsert({
-                            where: {
-                                postId_phase_url: {
-                                    postId: savedPost.id,
-                                    phase,
-                                    url: comment.commentUrl as string,
-                                },
-                            },
-                            update: {
-                                content: comment.text as string,
-                                authorName: comment.profileName as string,
-                                timestamp: new Date(comment.date as string),
-                                likes:
-                                    parseInt(comment.likesCount as string) || 0,
-                                replies: (comment.commentsCount as number) || 0,
-                            },
-                            create: {
-                                postId: savedPost.id,
-                                phase,
-                                content: comment.text as string,
-                                authorName: comment.profileName as string,
-                                timestamp: new Date(comment.date as string),
-                                url: comment.commentUrl as string,
-                                likes:
-                                    parseInt(comment.likesCount as string) || 0,
-                                replies: (comment.commentsCount as number) || 0,
-                            },
-                        });
-                    }
-                } catch (commentError) {
-                    this.logger.error(
-                        `Error scraping comments for post ${post.url}:`,
-                        commentError,
-                    );
+                const commentRun = await this.apifyClient
+                    .actor('apify/facebook-comments-scraper')
+                    .call(commentsInput);
+                const commentsDataset = await this.apifyClient
+                    .dataset(commentRun.defaultDatasetId)
+                    .listItems();
+                console.log(
+                    `Found ${commentsDataset.items.length} comments from ${postsDataset.items.length} posts`,
+                );
+                for (const comment of commentsDataset.items) {
+                    await this.prisma.facebookComment.create({
+                        data: {
+                            postId: comment.facebookUrl as string,
+                            phase,
+                            content: comment.text as string,
+                            authorName: comment.profileName as string,
+                            timestamp: new Date(comment.date as string),
+                            url: comment.commentUrl as string,
+                            likes: parseInt(comment.likesCount as string) || 0,
+                            replies: (comment.commentsCount as number) || 0,
+                        },
+                    });
                 }
+            } catch (commentError) {
+                this.logger.error(`Error scraping comments:`, commentError);
             }
 
             this.logger.log(

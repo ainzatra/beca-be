@@ -109,7 +109,7 @@ model FacebookPost {
   campaignId    String
   phase         CampaignPhase  // Link post data to a specific campaign phase
   content       String?
-  url           String         @unique // URL to the Facebook post
+  url           String         // URL to the Facebook post
   timestamp     DateTime
   likes         Int            @default(0)
   shares        Int            @default(0)
