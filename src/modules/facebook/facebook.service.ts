@@ -95,18 +95,25 @@ export class FacebookService {
             for (const post of postsDataset.items) {
                 this.logger.log(`Saving post: ${post.url}`);
                 // Save post to database
-                const savedPost = await this.prisma.facebookPost.create({
-                    data: {
-                        campaignId,
-                        phase,
-                        content: post.text as string,
-                        url: post.url as string,
-                        timestamp: new Date((post.timestamp as number) * 1000),
-                        likes: (post.likes as number) || 0,
-                        shares: (post.shares as number) || 0,
-                        commentsCount: (post.comments as number) || 0,
-                    },
-                });
+                try {
+                    const savedPost = await this.prisma.facebookPost.create({
+                        data: {
+                            campaignId,
+                            phase,
+                            content: post.text as string,
+                            url: post.url as string,
+                            timestamp: new Date(
+                                (post.timestamp as number) * 1000,
+                            ),
+                            likes: (post.likes as number) || 0,
+                            shares: (post.shares as number) || 0,
+                            commentsCount: (post.comments as number) || 0,
+                        },
+                    });
+                } catch (error) {
+                    this.logger.error(`Error saving ${post.url}: ${error}`);
+                    continue;
+                }
             }
 
             try {
@@ -131,10 +138,35 @@ export class FacebookService {
                 console.log(
                     `Found ${commentsDataset.items.length} comments from ${postsDataset.items.length} posts`,
                 );
+                console.log(JSON.stringify(commentsDataset.items[0], null, 2));
+                const posts = await this.prisma.facebookPost.findMany({
+                    where: {
+                        campaignId,
+                        phase,
+                    },
+                    select: {
+                        id: true,
+                        url: true,
+                    },
+                });
+
                 for (const comment of commentsDataset.items) {
+                    if (!comment || !comment.commentUrl) continue;
+                    console.log(
+                        `Comment: ${comment.commentUrl}, Post: ${comment.facebookUrl}`,
+                    );
+                    const post = posts.filter(
+                        (post) => post.url === comment.facebookUrl,
+                    );
+
+                    if (!post) {
+                        console.log('No post id match found');
+                        continue;
+                    }
+
                     await this.prisma.facebookComment.create({
                         data: {
-                            postId: comment.facebookUrl as string,
+                            postId: post[0].id,
                             phase,
                             content: comment.text as string,
                             authorName: comment.profileName as string,
