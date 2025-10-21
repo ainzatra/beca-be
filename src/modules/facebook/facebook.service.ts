@@ -127,6 +127,7 @@ export class FacebookService {
                 const commentsInput = {
                     startUrls: postUrls,
                     resultsLimit: 50, // Up to 50 comments per post
+                    viewOption: 'RECENT_ACTIVITY', // Recent comment
                 };
 
                 const commentRun = await this.apifyClient

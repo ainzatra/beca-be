@@ -693,12 +693,21 @@ export class LlmService {
             totalConfidence / (batchResults.length + 1),
         );
 
-        // Convert merged maps to arrays
-        const finalTopIssues = Array.from(mergedTopIssues.values()).map(
+        // Use LLM to intelligently merge and prioritize issues
+        const allIssuesForMerging = Array.from(mergedTopIssues.values()).map(
             (issue) => ({
-                ...issue,
+                name: issue.issue,
+                responses: issue.responses,
+                sentiment: issue.sentiment,
+                trend: issue.trend,
                 mentions: issue.responses.length,
             }),
+        );
+
+        const finalTopIssues = await this.consolidateTopIssues(
+            allIssuesForMerging,
+            campaignTitle,
+            completedPhase,
         );
 
         // Group by actual address from database
@@ -919,6 +928,117 @@ Output ONLY valid JSON:
             }
         }
         return parsed;
+    }
+
+    private async consolidateTopIssues(
+        allIssues: any[],
+        campaignTitle: string,
+        completedPhase: string,
+    ) {
+        const systemPrompt = `You are an expert AI analyst consolidating survey feedback for an election campaign. Your task is to merge similar issues and identify the TOP 5 most important issues from the provided list.
+
+Key Requirements:
+1. MERGE DUPLICATES: Combine issues that are essentially the same topic (e.g., "corruption", "corruption in government", "Corruption/Transparency" should become one issue).
+2. PRIORITIZE BY IMPORTANCE: Consider both the number of mentions and the significance of each issue.
+3. LIMIT TO TOP 5: Return exactly 5 most important issues, no more, no less.
+4. CONCISE NAMES: Use clear, concise issue names (avoid overly long or redundant names).
+5. PRESERVE SENTIMENTS: Maintain the overall sentiment and trend information.
+
+Input:
+- Campaign: "${campaignTitle}"
+- Phase: "${completedPhase}"
+- Issues: Array of issues with mentions, sentiment, and trend data
+
+Output ONLY valid JSON with exactly 5 issues:
+{
+    "topIssues": [
+        {
+            "issue": "Consolidated issue name",
+            "responses": ["responseId1", "responseId2"],
+            "sentiment": "Positive" | "Negative" | "Neutral",
+            "trend": "up" | "down" | "flat",
+            "mentions": number
+        }
+    ]
+}`;
+
+        const userPrompt = `Consolidate these issues into the top 5 most important ones: ${JSON.stringify(allIssues, null, 2)}`;
+
+        let parsed;
+        let retries = 0;
+        const maxRetries = 3;
+        while (retries < maxRetries) {
+            try {
+                this.logger.log(
+                    `Starting issue consolidation LLM call for ${allIssues.length} issues${retries > 0 ? ` (retry ${retries})` : ''}`,
+                );
+                const completion = await this.openai.chat.completions.create({
+                    model: 'x-ai/grok-4-fast',
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userPrompt },
+                    ],
+                    response_format: { type: 'json_object' },
+                    temperature: 0.2, // Lower temperature for more consistent results
+                });
+
+                if (completion.usage) {
+                    this.logger.log(
+                        `Issue consolidation LLM tokens: prompt ${completion.usage.prompt_tokens}, completion ${completion.usage.completion_tokens}, total ${completion.usage.total_tokens}`,
+                    );
+                }
+                const content = completion.choices[0].message.content;
+                if (!content)
+                    throw new Error(
+                        'No content in issue consolidation LLM response',
+                    );
+                parsed = JSON.parse(content);
+                this.logger.log(
+                    'Issue consolidation LLM call completed successfully',
+                );
+                break;
+            } catch (error) {
+                if (
+                    error instanceof SyntaxError &&
+                    error.message.includes('Unexpected end of JSON input')
+                ) {
+                    retries++;
+                    if (retries < maxRetries) {
+                        this.logger.warn(
+                            `JSON parse failed, retrying (${retries}/${maxRetries})`,
+                        );
+                        continue;
+                    }
+                }
+                this.logger.error('Error in consolidateTopIssues:', error);
+                throw error;
+            }
+        }
+
+        // Ensure we have exactly 5 issues
+        if (parsed.topIssues && Array.isArray(parsed.topIssues)) {
+            // Sort by mentions if we have more than 5
+            if (parsed.topIssues.length > 5) {
+                parsed.topIssues.sort(
+                    (a: any, b: any) => b.mentions - a.mentions,
+                );
+                parsed.topIssues = parsed.topIssues.slice(0, 5);
+            }
+            // If we have fewer than 5, that's okay - return what we have
+            return parsed.topIssues;
+        }
+
+        // Fallback: return top 5 by mentions if LLM fails
+        return allIssues
+            .sort((a, b) => b.mentions - a.mentions)
+            .slice(0, 5)
+            .map((issue) => ({
+                issue: issue.name,
+                responses: issue.responses,
+                sentiment: issue.sentiment,
+                trend: issue.trend,
+                mentions: issue.mentions,
+            }));
     }
 
     private async analyzeSurveyBatch(

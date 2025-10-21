@@ -11,7 +11,7 @@ export class ResponseService {
     constructor(private readonly prisma: PrismaService) {}
 
     async bulkSubmit(data) {
-        for (const response of data.body) {
+        for (const response of data) {
             response.data = JSON.stringify(response.data);
             await this.prisma.response.create({ data: response });
         }

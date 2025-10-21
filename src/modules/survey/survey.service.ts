@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+    BadRequestException,
+    Injectable,
+    NotFoundException,
+} from '@nestjs/common';
 import { CampaignPhase } from '@prisma/client';
 import { PrismaService } from 'src/modules/prisma/prisma.service';
 import { CreateSurveyDto } from './dto/create-survey.dto';
@@ -67,6 +71,11 @@ export class SurveyService {
     }
 
     async updateSurvey(data, id: string) {
+        const survey = await this.prisma.survey.findUnique({ where: { id } });
+
+        if (survey?.isFinalized) {
+            throw new BadRequestException('Cannot edit a finalized survey');
+        }
         return this.prisma.survey.update({
             where: { id },
             data,

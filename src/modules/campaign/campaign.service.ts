@@ -116,16 +116,22 @@ export class CampaignService {
             );
         }
 
-        if (data.activePhase && data.activePhase === 'POST') {
-            data.status = 'COMPLETED';
-        }
-
         const updatedCampaign = await this.prisma.campaign.update({
             where: { id },
             data,
         });
 
-        if (data.activePhase && data.activePhase !== oldPhase) {
+        if (
+            (data.activePhase && data.activePhase !== oldPhase) ||
+            updatedCampaign.status === 'COMPLETED'
+        ) {
+            if (updatedCampaign.status !== 'COMPLETED')
+                await this.replicateFinalizedSurveys(
+                    id,
+
+                    oldPhase,
+                    data.activePhase,
+                );
             // await this.triggerPhaseAnalysis(id, oldPhase);
             this.emitter.emit('campaign.phaseChanged', {
                 campaignId: id,
@@ -134,6 +140,36 @@ export class CampaignService {
         }
 
         return updatedCampaign;
+    }
+
+    async replicateFinalizedSurveys(campaignId, oldPhase, newPhase) {
+        console.log(
+            `Replicating finalized surveys from ${oldPhase} to ${newPhase}`,
+        );
+        const finalizedSurveys = await this.prisma.survey.findMany({
+            where: {
+                campaignId,
+                phase: oldPhase,
+                isFinalized: true,
+            },
+        });
+
+        if (finalizedSurveys.length < 0) return;
+
+        console.log(`Found ${finalizedSurveys.length} finalized surveys`);
+        for (const survey of finalizedSurveys) {
+            await this.prisma.survey.create({
+                data: {
+                    campaignId: survey.campaignId,
+                    title: survey.title,
+                    form: survey.form,
+                    phase: newPhase,
+                    isFinalized: true,
+                },
+            });
+        }
+
+        console.log('Replicated all finalized surveys');
     }
 
     async getDashboardInfo() {
