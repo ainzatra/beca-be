@@ -730,6 +730,14 @@ export class LlmService {
             sentiments,
         }));
 
+        // Extract barangay-specific data for recommendations
+        const barangayData = this.extractBarangaySpecificData(
+            allResponses,
+            sentimentMap,
+            finalTopIssues,
+            historicalVotingData,
+        );
+
         // Count sentiments
         let totalResponses = 0;
         let positive = 0;
@@ -758,7 +766,19 @@ export class LlmService {
             });
         });
 
-        // Generate final cohesive summary
+        // Generate barangay-specific recommendations
+        const barangayRecommendations =
+            await this.generateBarangayRecommendations(
+                barangayData,
+                campaignTitle,
+                completedPhase,
+                candidateName,
+                candidateParty,
+                candidatePosition,
+                historicalVotingData,
+            );
+
+        // Generate final cohesive summary (without recommendations)
         const finalSummary = await this.generateFinalSummary(
             facebookAnalysis.summary,
             finalTopIssues,
@@ -782,6 +802,7 @@ export class LlmService {
             positive,
             negative,
             neutral,
+            recommendations: barangayRecommendations,
             historicalContext: {
                 hasHistoricalData:
                     historicalVotingData.allHistoricalData.length > 0,
@@ -1172,7 +1193,7 @@ Batch Responses: ${JSON.stringify(batchResponses, null, 2)}`;
         previousReports?: any,
         historicalVotingData?: any,
     ) {
-        const systemPrompt = `You are an expert AI analyst synthesizing election campaign reports with historical voting data. Given Facebook analysis, merged survey data, and historical voting patterns, create a cohesive final summary with strategic recommendations.
+        const systemPrompt = `You are an expert AI analyst synthesizing election campaign reports with historical voting data. Given Facebook analysis, merged survey data, and historical voting patterns, create a cohesive final summary.
 
 Key Requirements:
 - Combine Facebook public sentiment with survey sentiments.
@@ -1183,7 +1204,8 @@ Key Requirements:
   * DEFENSE AREAS: Historically strong performance but current sentiment is declining
   * GROWTH OPPORTUNITIES: Neutral sentiment but historically competitive areas
   * LOW PRIORITY AREAS: Both historical performance and current sentiment are weak
-- Provide 250-350 word narrative for non-technical readers, focusing on qualitative insights, sentiments, issues, trends, and **STRATEGIC CAMPAIGN RECOMMENDATIONS** based on historical comparison.
+- Provide 200-300 word narrative for non-technical readers, focusing on qualitative insights, sentiments, issues, and trends.
+- NOTE: Do NOT include specific recommendations in this summary as they are handled separately per barangay.
 - When discussing sentiment, clearly distinguish between:
   * Positive sentiment: Support, praise, enthusiasm for the candidate, expressions of voting intent
   * Negative sentiment: Opposition, criticism, expressions of voting against the candidate
@@ -1204,7 +1226,7 @@ Input:
 
 Output ONLY valid JSON:
 {
-    "finalSummary": "Cohesive narrative summary with strategic recommendations based on historical comparison..."
+    "finalSummary": "Cohesive narrative summary focusing on insights, sentiments, issues, and trends (without specific recommendations)..."
 }`;
 
         const userPrompt = `Synthesize the above data into a final report summary.`;
@@ -1461,5 +1483,338 @@ Output ONLY valid JSON:
                 defenseAreas: [],
             },
         };
+    }
+
+    private extractBarangaySpecificData(
+        allResponses: any[],
+        sentimentMap: Map<string, string>,
+        finalTopIssues: any[],
+        historicalVotingData: any,
+    ) {
+        // Known barangays from the system
+        const knownBarangays = new Set([
+            'POBLACION',
+            'BONGA MAYOR',
+            'BONGA MENOR',
+            'BUISAN',
+            'CAMACHILIHAN',
+            'CAMBAOG',
+            'CATACTE',
+            'LICIADA',
+            'MALAMIG',
+            'MALAWAK',
+            'SAN PEDRO',
+            'TALAMPAS',
+            'TANAWAN',
+            'TIBAGAN',
+        ]);
+
+        // Group responses by barangay
+        const barangayGroups: Map<string, any[]> = new Map();
+
+        allResponses.forEach((response) => {
+            const address = response.address || '';
+            const barangay = this.extractBarangayFromAddress(
+                address,
+                knownBarangays,
+            );
+
+            if (barangay && knownBarangays.has(barangay)) {
+                if (!barangayGroups.has(barangay)) {
+                    barangayGroups.set(barangay, []);
+                }
+                barangayGroups.get(barangay)!.push({
+                    responseId: response.id,
+                    sentiment: sentimentMap.get(response.id) || 'neutral',
+                    data: response.data,
+                });
+            }
+        });
+
+        // Process barangay data for recommendations
+        const barangayData: any[] = [];
+
+        for (const [barangay, responses] of barangayGroups.entries()) {
+            const responseCount = responses.length;
+            const positiveCount = responses.filter(
+                (r) => r.sentiment === 'positive',
+            ).length;
+            const negativeCount = responses.filter(
+                (r) => r.sentiment === 'negative',
+            ).length;
+            const neutralCount = responses.filter(
+                (r) => r.sentiment === 'neutral',
+            ).length;
+
+            // Calculate sentiment score (-1 to 1)
+            const sentimentScore =
+                responseCount > 0
+                    ? (positiveCount - negativeCount) / responseCount
+                    : 0;
+
+            // Get historical performance for this barangay
+            const historicalPerformance = this.getBarangayHistoricalPerformance(
+                barangay,
+                historicalVotingData,
+            );
+
+            // Extract key issues mentioned in this barangay
+            const barangayIssues = this.extractBarangayIssues(
+                responses,
+                finalTopIssues,
+            );
+
+            barangayData.push({
+                barangay,
+                responseCount,
+                positiveCount,
+                negativeCount,
+                neutralCount,
+                sentimentScore,
+                historicalPerformance,
+                keyIssues: barangayIssues,
+                responses: responses.map((r) => r.responseId),
+            });
+        }
+
+        return barangayData;
+    }
+
+    private extractBarangayFromAddress(
+        address: string,
+        knownBarangays: Set<string>,
+    ): string | null {
+        if (!address) return null;
+
+        const upperAddress = address.toUpperCase();
+
+        // Check for direct barangay mentions
+        for (const barangay of knownBarangays) {
+            if (upperAddress.includes(barangay)) {
+                return barangay;
+            }
+        }
+
+        // Check for partial matches (e.g., "BONGA" could match "BONGA MAYOR" or "BONGA MENOR")
+        for (const barangay of knownBarangays) {
+            const barangayParts = barangay.split(' ');
+            for (const part of barangayParts) {
+                if (upperAddress.includes(part) && part.length > 3) {
+                    return barangay;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private getBarangayHistoricalPerformance(
+        barangay: string,
+        historicalVotingData: any,
+    ): string {
+        if (
+            !historicalVotingData.candidateHistoricalPerformance ||
+            !historicalVotingData.partyPerformancePatterns
+        ) {
+            return 'unknown';
+        }
+
+        // Check candidate historical performance
+        let candidatePerformance = 'unknown';
+        for (const [year, yearData] of Object.entries(
+            historicalVotingData.candidateHistoricalPerformance,
+        )) {
+            const yearDataObj = yearData as Record<string, any>;
+            if (yearDataObj[barangay]) {
+                const votes = yearDataObj[barangay];
+                if (votes > 0) {
+                    candidatePerformance = 'performed';
+                } else {
+                    candidatePerformance = 'underperformed';
+                }
+            }
+        }
+
+        // Check party historical performance
+        let partyPerformance = 'unknown';
+        for (const [year, yearData] of Object.entries(
+            historicalVotingData.partyPerformancePatterns,
+        )) {
+            const yearDataObj = yearData as Record<string, any>;
+            if (yearDataObj[barangay]) {
+                const partyPercentage = parseFloat(
+                    yearDataObj[barangay].partyPercentage,
+                );
+                if (partyPercentage > 50) {
+                    partyPerformance = 'strong';
+                } else if (partyPercentage > 30) {
+                    partyPerformance = 'moderate';
+                } else {
+                    partyPerformance = 'weak';
+                }
+            }
+        }
+
+        // Combine assessments
+        if (
+            candidatePerformance === 'underperformed' ||
+            partyPerformance === 'weak'
+        ) {
+            return 'underperformed';
+        } else if (
+            candidatePerformance === 'performed' ||
+            partyPerformance === 'strong'
+        ) {
+            return 'strong';
+        } else if (partyPerformance === 'moderate') {
+            return 'moderate';
+        }
+
+        return 'unknown';
+    }
+
+    private extractBarangayIssues(
+        responses: any[],
+        finalTopIssues: any[],
+    ): string[] {
+        const barangayIssues: string[] = [];
+
+        // Extract issues from response data (simplified approach)
+        responses.forEach((response) => {
+            if (response.data && Array.isArray(response.data)) {
+                response.data.forEach((answer: any) => {
+                    if (answer.answer && typeof answer.answer === 'string') {
+                        const answerText = answer.answer.toLowerCase();
+
+                        // Check against top issues
+                        finalTopIssues.forEach((issue) => {
+                            if (
+                                answerText.includes(
+                                    issue.issue.toLowerCase(),
+                                ) ||
+                                issue.issue.toLowerCase().includes(answerText)
+                            ) {
+                                if (!barangayIssues.includes(issue.issue)) {
+                                    barangayIssues.push(issue.issue);
+                                }
+                            }
+                        });
+                    }
+                });
+            }
+        });
+
+        return barangayIssues.slice(0, 3); // Limit to top 3 issues per barangay
+    }
+
+    private async generateBarangayRecommendations(
+        barangayData: any[],
+        campaignTitle: string,
+        completedPhase: string,
+        candidateName?: string,
+        candidateParty?: string,
+        candidatePosition?: string,
+        historicalVotingData?: any,
+    ) {
+        if (barangayData.length === 0) {
+            return [];
+        }
+
+        const systemPrompt = `You are an expert AI campaign strategist creating targeted recommendations for specific barangays in an election campaign.
+
+Your task is to generate specific, actionable recommendations for each barangay based on:
+- Current sentiment analysis from survey responses
+- Historical voting performance
+- Key issues mentioned by residents
+- Response count (data reliability)
+
+For each barangay, provide:
+1. A specific recommendation (50-100 words) tailored to the barangay's situation (DO NOT MENTION THE SENTIMENT SCORE IN THE RECOMMENDATION)
+2. Priority level (HIGH/MEDIUM/LOW) based on:
+   * HIGH: Positive sentiment but historically underperformed areas
+   * MEDIUM: Positive sentiment and historically strong areas
+   * LOW: Negative/neutral sentiment regardless of historical performance
+3. Strategic focus areas
+
+Input:
+- Campaign: "${campaignTitle}"
+- Candidate: "${candidateName || 'N/A'}"
+- Party: "${candidateParty || 'N/A'}"
+- Position: "${candidatePosition || 'N/A'}"
+- Phase: "${completedPhase}"
+- Barangay Data: ${JSON.stringify(barangayData, null, 2)}
+
+Output ONLY valid JSON:
+{
+    "recommendations": [
+        {
+            "barangay": "string",
+            "recommendation": "Specific recommendation text (50-100 words)",
+            "priority": "HIGH" | "MEDIUM" | "LOW",
+            "sentimentScore": number,
+            "historicalPerformance": "string",
+            "keyIssues": ["string"],
+            "responseCount": number
+        }
+    ]
+}`;
+
+        const userPrompt = `Generate barangay-specific recommendations based on the provided data.`;
+
+        let parsed;
+        let retries = 0;
+        const maxRetries = 3;
+        while (retries < maxRetries) {
+            try {
+                this.logger.log(
+                    `Starting barangay recommendations LLM call for ${barangayData.length} barangays${retries > 0 ? ` (retry ${retries})` : ''}`,
+                );
+                const completion = await this.openai.chat.completions.create({
+                    model: 'x-ai/grok-4-fast',
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userPrompt },
+                    ],
+                    response_format: { type: 'json_object' },
+                    temperature: 0.3,
+                });
+
+                if (completion.usage) {
+                    this.logger.log(
+                        `Barangay recommendations LLM tokens: prompt ${completion.usage.prompt_tokens}, completion ${completion.usage.completion_tokens}, total ${completion.usage.total_tokens}`,
+                    );
+                }
+                const content = completion.choices[0].message.content;
+                if (!content)
+                    throw new Error(
+                        'No content in barangay recommendations LLM response',
+                    );
+                parsed = JSON.parse(content);
+                this.logger.log(
+                    'Barangay recommendations LLM call completed successfully',
+                );
+                break;
+            } catch (error) {
+                if (
+                    error instanceof SyntaxError &&
+                    error.message.includes('Unexpected end of JSON input')
+                ) {
+                    retries++;
+                    if (retries < maxRetries) {
+                        this.logger.warn(
+                            `JSON parse failed, retrying (${retries}/${maxRetries})`,
+                        );
+                        continue;
+                    }
+                }
+                this.logger.error(
+                    'Error in generateBarangayRecommendations:',
+                    error,
+                );
+                throw error;
+            }
+        }
+
+        return parsed.recommendations || [];
     }
 }
